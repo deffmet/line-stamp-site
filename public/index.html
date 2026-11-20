@@ -216,7 +216,7 @@
       overflow-x: auto;
     }
 
-    /* ★動画埋め込みフロートウィンドウ（PC：右真ん中 / スマホ：右上） */
+    /* ★動画埋め込みフロートウィンドウ */
     .floating-video-box {
       position: fixed;
       z-index: 9999;
@@ -225,10 +225,9 @@
       border-radius: 12px;
       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
       overflow: hidden;
-      transition: all 0.3s ease;
     }
 
-    /* PC版（画面幅769px以上）：右真ん中に小さく表示 */
+    /* PC版（画面幅769px以上）：右真ん中・ドラッグ移動可能 */
     @media (min-width: 769px) {
       .floating-video-box {
         top: 50%;
@@ -236,14 +235,30 @@
         transform: translateY(-50%);
         width: 260px;
       }
+      .video-box-header {
+        cursor: grab; /* マウスポインターを掴むアイコンに */
+        user-select: none;
+      }
+      .video-box-header:active {
+        cursor: grabbing;
+      }
     }
 
-    /* iOS・Android縦端末（画面幅768px以下）：右上に小さく表示 */
+    /* スマホ縦端末（画面幅768px以下）：4分割の上から2番目(25%)に配置・スクロールで上へ */
     @media (max-width: 768px) {
       .floating-video-box {
-        top: 12px;
+        top: 25%; /* 画面を4分割した上から2番目の位置 */
         right: 12px;
         width: 170px;
+        transition: top 0.35s ease; /* スクロール時の移動を滑らかに */
+      }
+      /* 下にスクロールしたときに適用されるクラス */
+      .floating-video-box.scrolled-top {
+        top: 12px;
+      }
+      .video-box-header {
+        cursor: default;
+        user-select: none;
       }
     }
 
@@ -256,7 +271,7 @@
       color: #ffffff;
       font-size: 11px;
       font-weight: bold;
-      padding: 4px 8px;
+      padding: 5px 8px;
     }
     .video-close-btn {
       background: none;
@@ -319,7 +334,7 @@
           <div class="stamp-name">かわいいねこのスタンプ</div>
           <div class="stamp-creator">制作：©Dhua</div>
         </div>
-        <a href="https://line.me/S/sticker/37797569" target="_blank" rel="noopener" class="btn-store">LINE STOREで見る</a>
+        <a href="https://line.me" target="_blank" rel="noopener" class="btn-store">LINE STOREで見る</a>
       </div>
 
       <!-- スタンプ2 -->
@@ -329,7 +344,7 @@
           <div class="stamp-name">かわいいわんこ</div>
           <div class="stamp-creator">制作：©Dhua</div>
         </div>
-        <a href="https://store.line.me/stickershop/product/37813662/ja" target="_blank" rel="noopener" class="btn-store">LINE STOREで見る</a>
+        <a href="https://line.me" target="_blank" rel="noopener" class="btn-store">LINE STOREで見る</a>
       </div>
 
     </div>
@@ -371,9 +386,9 @@
 
   </div>
 
-  <!-- ★動画埋め込みフロートエリア（PC：右真ん中 / スマホ：右上） -->
+  <!-- ★動画埋め込みフロートエリア -->
   <div class="floating-video-box" id="floatingVideo">
-    <div class="video-box-header">
+    <div class="video-box-header" id="videoDragHeader">
       <span>▶ 最新トーク動画</span>
       <button class="video-close-btn" onclick="document.getElementById('floatingVideo').style.display='none'" title="閉じる">×</button>
     </div>
@@ -382,16 +397,63 @@
       <iframe 
         src="https://youtube.com" 
         title="YouTube video player" 
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-        allowfullscreen>
-      </iframe>
-    </div>
-  </div>
+allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+allowfullscreen>
 
-  <!-- Cloudflareだけでリアルタイム人数を受け取るスクリプト -->
-  <script>
-    function connectCounter() {
-      const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
-      ws.onmessage = (event) => {
+// 1. リアルタイム人数カウント
+function connectCounter() {
+const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+const ws = new WebSocket(${protocol}//${location.host}/ws);
+ws.onmessage = (event) => {
+document.getElementById("online-count").textContent = event.data;
+};
+ws.onclose = () => {
+setTimeout(connectCounter, 3000);
+};
+}
+connectCounter();
+// 2. スマホスクロール連動 ＆ PCドラッグ移動の制御
+const videoBox = document.getElementById("floatingVideo");
+const dragHeader = document.getElementById("videoDragHeader");
+// スマホ用：スクロール位置によって上から2番目(25%)と右上(12px)を切り替え
+window.addEventListener("scroll", () => {
+if (window.innerWidth <= 768) {
+if (window.scrollY > 10) {
+videoBox.classList.add("scrolled-top");
+} else {
+// 一番上まで戻って上へスクロールできない状態になったら元の位置へ戻る
+videoBox.classList.remove("scrolled-top");
+}
+}
+});
+// PC用：マウスポインターでタイトルバーを掴んで移動（スマホでは反応しない）
+let isDragging = false;
+let offsetX = 0;
+let offsetY = 0;
+dragHeader.addEventListener("mousedown", (e) => {
+// スマホ幅（768px以下）または閉じるボタン押下時は無効
+if (window.innerWidth <= 768 || e.target.tagName === "BUTTON") return;
+isDragging = true;
+const rect = videoBox.getBoundingClientRect();
+// 初回ドラッグ時に右中央基準(right/transform)を解除して座標固定に切り替え
+videoBox.style.transform = "none";
+videoBox.style.right = "auto";
+videoBox.style.left = rect.left + "px";
+videoBox.style.top = rect.top + "px";
+offsetX = e.clientX - rect.left;
+offsetY = e.clientY - rect.top;
+});
+document.addEventListener("mousemove", (e) => {
+if (!isDragging) return;
+let newLeft = e.clientX - offsetX;
+let newTop = e.clientY - offsetY;
+// 画面の外にはみ出さないように制限
+newLeft = Math.max(0, Math.min(window.innerWidth - videoBox.offsetWidth, newLeft));
+newTop = Math.max(0, Math.min(window.innerHeight - videoBox.offsetHeight, newTop));
+videoBox.style.left = newLeft + "px";
+videoBox.style.top = newTop + "px";
+});
+document.addEventListener("mouseup", () => {
+isDragging = false;
+});
