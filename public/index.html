@@ -37,11 +37,44 @@
       padding: 0 16px 16px;
       border-bottom: 1px solid #e5e5e5;
     }
+    .channel-title-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
     .channel-title {
       font-size: 24px;
       font-weight: bold;
-      margin: 0 0 6px;
+      margin: 0;
     }
+
+    /* ★リアルタイム閲覧人数バッジのデザイン（ここが抜けていました） */
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: #fff0f0;
+      border: 1px solid #ffcccc;
+      color: #d93025;
+      font-size: 13px;
+      font-weight: bold;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #ff0000;
+      border-radius: 50%;
+      animation: blink 1.5s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
     .channel-desc {
       font-size: 14px;
       color: #606060;
@@ -178,7 +211,14 @@
 
   <!-- チャンネル概要エリア -->
   <div class="channel-header">
-    <h1 class="channel-title">LINEスタンプ×ボイス動画 企画サイト</h1>
+    <div class="channel-title-row">
+      <h1 class="channel-title">LINEスタンプ×ボイス動画 企画サイト</h1>
+      <!-- ★リアルタイム閲覧人数バッジ（ここが抜けていました） -->
+      <div class="live-badge">
+        <span class="live-dot"></span>
+        <span>現在 <strong id="online-count">1</strong> 人が閲覧中</span>
+      </div>
+    </div>
     <p class="channel-desc">クリエイター様のLINEスタンプを使ったトーク動画を制作・公開中！無償掲載＆100円有償出演の依頼を受付しています。</p>
   </div>
 
@@ -189,20 +229,20 @@
     <h2 class="section-title">販売中・動画登場LINEスタンプ一覧</h2>
     <div class="stamp-grid">
       
-      <!-- スタンプ1（ここをコピーして増やせます） -->
+      <!-- スタンプ1 -->
       <div class="stamp-card">
         <div>
-          <img src="cat1.png" alt="cat1.png" class="stamp-img">
+          <img src="cat1.png" alt="かわいいねこのスタンプ" class="stamp-img">
           <div class="stamp-name">かわいいねこのスタンプ</div>
           <div class="stamp-creator">制作：©Dhua</div>
         </div>
         <a href="https://line.me/S/sticker/37797569" target="_blank" rel="noopener" class="btn-store">LINE STOREで見る</a>
       </div>
 
-      <!-- スタンプ2（不要ならこのブロックを削除してください） -->
+      <!-- スタンプ2 -->
       <div class="stamp-card">
         <div>
-          <img src="dog1.png" class="stamp-img">
+          <img src="dog1.png" alt="かわいいわんこ" class="stamp-img">
           <div class="stamp-name">かわいいわんこ</div>
           <div class="stamp-creator">制作：©Dhua</div>
         </div>
@@ -231,6 +271,8 @@
       <!-- ここに将来Google AdSenseやASPの広告HTMLタグを貼り付けます -->
       [ 広告掲載スペース ]
     </div>
+  </div>
+
   <!-- Cloudflareだけでリアルタイム人数を受け取るスクリプト -->
   <script>
     function connectCounter() {
