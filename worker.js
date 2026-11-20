@@ -1,5 +1,5 @@
 // ★あなただけの秘密の閲覧パスワード（好きな半角英数字に変えてください）
-const ADMIN_KEY = "dhua1234";
+const ADMIN_KEY = "dF20180223";
 
 export class OnlineCounter {
   constructor(state, env) {
