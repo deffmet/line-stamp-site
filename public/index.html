@@ -1,571 +1,246 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LINEスタンプ×ボイス動画 コミュニティサイト</title>
-  <link rel="icon" href="LineIcons.png?v=2" type="image/png">
-  <link rel="apple-touch-icon" href="LineIcons.png?v=2">
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
-      background-color: #f9f9f9;
-      color: #0f0f0f;
-    }
-    .yt-banner-wrapper {
-      max-width: 1280px;
-      margin: 16px auto 0;
-      padding: 0 16px;
-    }
-    .yt-banner {
-      width: 100%;
-      aspect-ratio: 16 / 3;
-      max-height: 260px;
-      object-fit: cover;
-      border-radius: 12px;
-      display: block;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-    .channel-header {
-      max-width: 1280px;
-      margin: 16px auto 0;
-      padding: 0 16px 16px;
-      border-bottom: 1px solid #e5e5e5;
-    }
-    .channel-title-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 6px;
-    }
-    .channel-title {
-      font-size: 24px;
-      font-weight: bold;
-      margin: 0;
-    }
-    .live-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background-color: #fff0f0;
-      border: 1px solid #ffcccc;
-      color: #d93025;
-      font-size: 13px;
-      font-weight: bold;
-      padding: 4px 12px;
-      border-radius: 20px;
-    }
-    .live-dot {
-      width: 8px;
-      height: 8px;
-      background-color: #ff0000;
-      border-radius: 50%;
-      animation: blink 1.5s infinite;
-    }
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-    .channel-desc {
-      font-size: 14px;
-      color: #606060;
-      margin: 0;
-    }
-    .container {
-      max-width: 1280px;
-      margin: 24px auto;
-      padding: 0 16px;
-    }
-    .section-title {
-      font-size: 20px;
-      font-weight: bold;
-      margin: 0 0 16px;
-      padding-left: 10px;
-      border-left: 4px solid #06c755;
-    }
-    .stamp-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px;
-      margin-bottom: 40px;
-    }
-    .stamp-card {
-      background: #ffffff;
-      border: 1px solid #e5e5e5;
-      border-radius: 12px;
-      padding: 16px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: transform 0.2s;
-    }
-    .stamp-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-    .stamp-img {
-      width: 140px;
-      height: 140px;
-      object-fit: contain;
-      margin: 0 auto 12px;
-    }
-    .stamp-name {
-      font-size: 16px;
-      font-weight: bold;
-      margin: 0 0 6px;
-    }
-    .stamp-creator {
-      font-size: 12px;
-      color: #606060;
-      margin: 0 0 14px;
-    }
-    .btn-store {
-      display: block;
-      background-color: #06c755;
-      color: #ffffff;
-      text-decoration: none;
-      font-weight: bold;
-      font-size: 13px;
-      padding: 10px;
-      border-radius: 8px;
-    }
-    .btn-store:hover {
-      background-color: #05b34c;
-    }
-    .action-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-      margin-bottom: 32px;
-    }
-    .card {
-      background: #ffffff;
-      border: 1px solid #e5e5e5;
-      border-radius: 12px;
-      padding: 20px;
-    }
-    .card h3 {
-      font-size: 18px;
-      margin: 0 0 8px;
-    }
-    .card p {
-      font-size: 14px;
-      color: #555;
-      margin: 0 0 16px;
-      line-height: 1.5;
-    }
-    .btn {
-      display: inline-block;
-      padding: 10px 20px;
-      border-radius: 20px;
-      text-decoration: none;
-      font-weight: bold;
-      font-size: 14px;
-      text-align: center;
-    }
-    .btn-free {
-      background-color: #06c755;
-      color: #ffffff;
-    }
-    .btn-paid {
-      background-color: #0f0f0f;
-      color: #ffffff;
-    }
-    .ad-container {
-      margin: 32px 0;
-      text-align: center;
-    }
-    .ad-label {
-      font-size: 11px;
-      color: #999;
-      letter-spacing: 1px;
-      margin-bottom: 6px;
-    }
-    .ad-box {
-      background-color: #ffffff;
-      border: 1px solid #eaeaea;
-      border-radius: 12px;
-      padding: 16px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 90px;
-      overflow-x: auto;
-    }
-    .site-footer {
-      max-width: 1280px;
-      margin: 40px auto 32px;
-      padding: 24px 16px 0;
-      border-top: 1px solid #e5e5e5;
-      text-align: center;
-    }
-    .contact-link {
-      display: inline-block;
-      color: #06c755;
-      font-weight: bold;
-      font-size: 15px;
-      text-decoration: underline;
-      cursor: pointer;
-      padding: 8px 16px;
-    }
-    .contact-link:hover {
-      color: #05b34c;
-    }
-    .copyright {
-      font-size: 12px;
-      color: #888;
-      margin-top: 12px;
-    }
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.55);
-      z-index: 10000;
-      justify-content: center;
-      align-items: center;
-      padding: 16px;
-      box-sizing: border-box;
-    }
-    .modal-overlay.active {
-      display: flex;
-    }
-    .contact-modal {
-      background-color: #ffffff;
-      width: 100%;
-      max-width: 480px;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-      position: relative;
-      animation: fadeIn 0.2s ease;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #eeeeee;
-    }
-    .modal-title {
-      font-size: 18px;
-      font-weight: bold;
-      margin: 0;
-    }
-    .modal-close-btn {
-      background: #f0f0f0;
-      border: none;
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      font-size: 18px;
-      line-height: 1;
-      cursor: pointer;
-      color: #333;
-    }
-    .modal-close-btn:hover {
-      background: #e0e0e0;
-    }
-    .form-group {
-      margin-bottom: 14px;
-      text-align: left;
-    }
-    .form-label {
-      display: block;
-      font-size: 12px;
-      font-weight: bold;
-      color: #555;
-      margin-bottom: 4px;
-    }
-    .form-input, .form-textarea {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px 12px;
-      border: 1px solid #cccccc;
-      border-radius: 8px;
-      font-size: 14px;
-      font-family: inherit;
-      background-color: #ffffff;
-      color: #0f0f0f;
-    }
-    .form-input[readonly] {
-      background-color: #f5f5f5;
-      color: #555555;
-    }
-    .form-input::placeholder, .form-textarea::placeholder {
-      color: rgba(0, 0, 0, 0.32);
-    }
-    .form-textarea {
-      min-height: 110px;
-      resize: vertical;
-    }
-    .save-notice {
-      font-size: 11px;
-      color: #06c755;
-      margin-bottom: 14px;
-      text-align: right;
-    }
-    .btn-submit {
-      width: 100%;
-      background-color: #06c755;
-      color: #ffffff;
-      border: none;
-      padding: 12px;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .btn-submit:hover {
-      background-color: #05b34c;
-    }
-    .floating-video-box {
-      position: fixed;
-      z-index: 9999;
-      background: #ffffff;
-      border: 1px solid #e0e0e0;
-      border-radius: 12px;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-      overflow: hidden;
-    }
-    @media (min-width: 769px) {
-      .floating-video-box {
-        top: 50%;
-        right: 16px;
-        transform: translateY(-50%);
-        width: 260px;
-      }
-      .video-box-header {
-        cursor: grab;
-        user-select: none;
-      }
-      .video-box-header:active {
-        cursor: grabbing;
-      }
-    }
-    @media (max-width: 768px) {
-      .floating-video-box {
-        top: 25%;
-        right: 12px;
-        width: 170px;
-        transition: top 0.35s ease;
-      }
-      .floating-video-box.scrolled-top {
-        top: 12px;
-      }
-      .video-box-header {
-        cursor: default;
-        user-select: none;
-      }
-    }
-    .video-box-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #0f0f0f;
-      color: #ffffff;
-      font-size: 11px;
-      font-weight: bold;
-      padding: 5px 8px;
-    }
-    .video-close-btn {
-      background: none;
-      border: none;
-      color: #ffffff;
-      font-size: 14px;
-      line-height: 1;
-      cursor: pointer;
-      padding: 0 4px;
-    }
-    .video-iframe-wrap {
-      position: relative;
-      width: 100%;
-      padding-top: 56.25%;
-      background: #000;
-    }
-    .video-iframe-wrap iframe {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LINEスタンプ×ボイス動画 コミュニティサイト</title>
+<link rel="icon" href="LineIcons.png?v=2" type="image/png">
+<link rel="apple-touch-icon" href="LineIcons.png?v=2">
+<style>
+body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;background-color:#f9f9f9;color:#0f0f0f}
+.yt-banner-wrapper{max-width:1280px;margin:16px auto 0;padding:0 16px}
+.yt-banner{width:100%;aspect-ratio:16/3;max-height:260px;object-fit:cover;border-radius:12px;display:block;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+.channel-header{max-width:1280px;margin:16px auto 0;padding:0 16px 16px;border-bottom:1px solid #e5e5e5}
+.channel-title-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:6px}
+.channel-title{font-size:24px;font-weight:bold;margin:0}
+.live-badge{display:inline-flex;align-items:center;gap:6px;background-color:#fff0f0;border:1px solid #ffcccc;color:#d93025;font-size:13px;font-weight:bold;padding:4px 12px;border-radius:20px}
+.live-dot{width:8px;height:8px;background-color:#ff0000;border-radius:50%;animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.channel-desc{font-size:14px;color:#606060;margin:0}
+.container{max-width:1280px;margin:24px auto;padding:0 16px}
+.section-title{font-size:20px;font-weight:bold;margin:0 0 16px;padding-left:10px;border-left:4px solid #06c755}
+.stamp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:40px}
+.stamp-card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:16px;text-align:center;display:flex;flex-direction:column;justify-content:space-between;transition:transform 0.2s}
+.stamp-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.08)}
+.stamp-img{width:140px;height:140px;object-fit:contain;margin:0 auto 12px}
+.stamp-name{font-size:16px;font-weight:bold;margin:0 0 6px}
+.stamp-creator{font-size:12px;color:#606060;margin:0 0 14px}
+.btn-store{display:block;background-color:#06c755;color:#fff;text-decoration:none;font-weight:bold;font-size:13px;padding:10px;border-radius:8px}
+.btn-store:hover{background-color:#05b34c}
+.action-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:32px}
+.card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:20px}
+.card h3{font-size:18px;margin:0 0 8px}
+.card p{font-size:14px;color:#555;margin:0 0 16px;line-height:1.5}
+.btn{display:inline-block;padding:10px 20px;border-radius:20px;text-decoration:none;font-weight:bold;font-size:14px;text-align:center}
+.btn-free{background-color:#06c755;color:#fff}
+.btn-paid{background-color:#0f0f0f;color:#fff}
+.ad-container{margin:32px 0;text-align:center}
+.ad-label{font-size:11px;color:#999;letter-spacing:1px;margin-bottom:6px}
+.ad-box{background-color:#fff;border:1px solid #eaeaea;border-radius:12px;padding:16px;display:flex;justify-content:center;align-items:center;min-height:90px;overflow-x:auto}
+.site-footer{max-width:1280px;margin:40px auto 32px;padding:24px 16px 0;border-top:1px solid #e5e5e5;text-align:center}
+.contact-link{display:inline-block;color:#06c755;font-weight:bold;font-size:15px;text-decoration:underline;cursor:pointer;padding:8px 16px}
+.contact-link:hover{color:#05b34c}
+.copyright{font-size:12px;color:#888;margin-top:12px}
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,0.55);z-index:10000;justify-content:center;align-items:center;padding:16px;box-sizing:border-box}
+.modal-overlay.active{display:flex}
+.contact-modal{background-color:#fff;width:100%;max-width:480px;border-radius:16px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,0.25);position:relative;animation:fadeIn 0.2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #eee}
+.modal-title{font-size:18px;font-weight:bold;margin:0}
+.modal-close-btn{background:#f0f0f0;border:none;width:32px;height:32px;border-radius:50%;font-size:18px;line-height:1;cursor:pointer;color:#333}
+.modal-close-btn:hover{background:#e0e0e0}
+.form-group{margin-bottom:14px;text-align:left}
+.form-label{display:block;font-size:12px;font-weight:bold;color:#555;margin-bottom:4px}
+.form-input,.form-textarea{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #ccc;border-radius:8px;font-size:14px;font-family:inherit;background-color:#fff;color:#0f0f0f}
+.form-input[readonly]{background-color:#f5f5f5;color:#555}
+.form-input::placeholder,.form-textarea::placeholder{color:rgba(0,0,0,0.32)}
+.form-textarea{min-height:110px;resize:vertical}
+.save-notice{font-size:11px;color:#06c755;margin-bottom:14px;text-align:right}
+.btn-submit{width:100%;background-color:#06c755;color:#fff;border:none;padding:12px;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer}
+.btn-submit:hover{background-color:#05b34c}
+.floating-video-box{position:fixed;z-index:9999;background:#fff;border:1px solid #e0e0e0;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.18);overflow:hidden}
+@media (min-width:769px){
+.floating-video-box{top:50%;right:16px;transform:translateY(-50%);width:260px}
+.video-box-header{cursor:grab;user-select:none}
+.video-box-header:active{cursor:grabbing}
+}
+@media (max-width:768px){
+.floating-video-box{top:25%;right:12px;width:170px;transition:top 0.35s ease}
+.floating-video-box.scrolled-top{top:12px}
+.video-box-header{cursor:default;user-select:none}
+}
+.video-box-header{display:flex;justify-content:space-between;align-items:center;background:#0f0f0f;color:#fff;font-size:11px;font-weight:bold;padding:5px 8px}
+.video-close-btn{background:none;border:none;color:#fff;font-size:14px;line-height:1;cursor:pointer;padding:0 4px}
+.video-iframe-wrap{position:relative;width:100%;padding-top:56.25%;background:#000}
+.video-iframe-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
+</style>
 </head>
 <body>
 
-  <div class="yt-banner-wrapper">
-    <img src="banner.png" alt="チャンネルメインバナー" class="yt-banner">
-  </div>
+<div class="yt-banner-wrapper">
+  <img src="banner.png" alt="チャンネルメインバナー" class="yt-banner">
+</div>
 
-  <div class="channel-header">
-    <div class="channel-title-row">
-      <h1 class="channel-title">LINEスタンプ×ボイス動画 企画サイト</h1>
-      <div class="live-badge">
-        <span class="live-dot"></span>
-        <span>現在 <strong id="online-count">1</strong> 人が閲覧中</span>
-      </div>
+<div class="channel-header">
+  <div class="channel-title-row">
+    <h1 class="channel-title">LINEスタンプ×ボイス動画 企画サイト</h1>
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      <span>現在 <strong id="online-count">1</strong> 人が閲覧中</span>
     </div>
-    <p class="channel-desc">クリエイター様のLINEスタンプを使ったトーク動画を制作・公開中！無償掲載＆100円有償出演の依頼を受付しています。</p>
+  </div>
+  <p class="channel-desc">クリエイター様のLINEスタンプを使ったトーク動画を制作・公開中！無償掲載＆100円有償出演の依頼を受付しています。</p>
+</div>
+
+<div class="container">
+  <h2 class="section-title">販売中・動画登場LINEスタンプ一覧</h2>
+  <div class="stamp-grid">
+    <div class="stamp-card">
+      <div>
+        <img src="cat1.png" alt="かわいいねこのスタンプ" class="stamp-img">
+        <div class="stamp-name">かわいいねこのスタンプ</div>
+        <div class="stamp-creator">制作：©Dhua</div>
+      </div>
+      <a href="https://line.me" target="_blank" rel="noopener" class="btn-store">LINE STOREで見る</a>
+    </div>
+    <div class="stamp-card">
+      <div>
+        <img src="dog1.png" alt="かわいいわんこ" class="stamp-img">
+        <div class="stamp-name">かわいいわんこ</div>
+        <div class="stamp-creator">制作：©Dhua</div>
+      </div>
+      <a href="https://line.me" target="_blank" rel="noopener" class="btn-store">LINE STOREで見る</a>
+    </div>
   </div>
 
-  <div class="container">
+  <div class="ad-container">
+    <div class="ad-label">SPONSORED / 広告</div>
+    <div class="ad-box">
+      <p style="margin:0;color:#888;font-size:13px;">ここに横長バナー広告（728×90 や レスポンシブ広告）が表示されます</p>
+    </div>
+  </div>
 
-    <h2 class="section-title">販売中・動画登場LINEスタンプ一覧</h2>
-    <div class="stamp-grid">
-      <div class="stamp-card">
-        <div>
-          <img src="cat1.png" alt="かわいいねこのスタンプ" class="stamp-img">
-          <div class="stamp-name">かわいいねこのスタンプ</div>
-制作：©Dhua
+  <h2 class="section-title">動画化・掲載のご依頼はこちら</h2>
+  <div class="action-cards">
+    <div class="card">
+      <h3>無償で動画化・リンク掲載依頼</h3>
+      <p>あなたのLINEスタンプをトーク動画に登場させ、当サイトにスタンプ購入リンクとSNSリンクを掲載します。</p>
+      <a href="#" class="btn btn-free">無償依頼フォームへ（準備中）</a>
+    </div>
+    <div class="card">
+      <h3>有償依頼（100円）で優先登場</h3>
+      <p>お手頃価格の100円で、ご希望のシチュエーションやセリフ指定でスタンプを動画化します。</p>
+      <a href="#" class="btn btn-paid">100円で依頼する（準備中）</a>
+    </div>
+  </div>
 
-LINE STOREで見る
-かわいいわんこ
-制作：©Dhua
+  <div class="ad-container">
+    <div class="ad-label">PR / おすすめツール</div>
+    <div class="ad-box">
+      <p style="margin:0;color:#888;font-size:13px;">ここにフッター広告（300×250 や レクタングル広告）が表示されます</p>
+    </div>
+  </div>
+</div>
 
-LINE STOREで見る
+<footer class="site-footer">
+  <a class="contact-link" id="openContactBtn">お問い合わせへ</a>
+  <div class="copyright">©Dhua / LINEスタンプ×ボイス動画 企画サイト</div>
+</footer>
 
-SPONSORED / 広告
+<div class="modal-overlay" id="contactModalOverlay">
+  <div class="contact-modal">
+    <div class="modal-header">
+      <h3 class="modal-title">お問い合わせ</h3>
+      <button type="button" class="modal-close-btn" id="closeContactBtn" title="閉じる">×</button>
+    </div>
+    <form id="contactForm">
+      <div class="form-group">
+        <label class="form-label">宛先</label>
+        <input type="text" class="form-input" id="contactTo" value="あなたのメールアドレス@example.com" readonly>
+      </div>
+      <div class="form-group">
+        <label class="form-label">宛名（お名前）</label>
+        <input type="text" class="form-input" id="contactName" placeholder="お名前・クリエイター名" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">タイトル名</label>
+        <input type="text" class="form-input" id="contactSubject" placeholder="問い合わせ本件" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">本文</label>
+        <textarea class="form-textarea" id="contactBody" placeholder="問い合わせ内容" required></textarea>
+      </div>
+      <div class="save-notice">※入力内容はブラウザに自動保存されます</div>
+      <button type="submit" class="btn-submit">送信する</button>
+    </form>
+  </div>
+</div>
 
-ここに横長バナー広告（728×90 や レスポンシブ広告）が表示されます
-
-動画化・掲載のご依頼はこちら
-
-
-無償で動画化・リンク掲載依頼
-あなたのLINEスタンプをトーク動画に登場させ、当サイトにスタンプ購入リンクとSNSリンクを掲載します。
-無償依頼フォームへ（準備中）
-
-
-有償依頼（100円）で優先登場
-お手頃価格の100円で、ご希望のシチュエーションやセリフ指定でスタンプを動画化します。
-100円で依頼する（準備中）
-
-PR / おすすめツール
-
-ここにフッター広告（300×250 や レクタングル広告）が表示されます
-
-お問い合わせへ
-©Dhua / LINEスタンプ×ボイス動画 企画サイト
-お問い合わせ
-×
-宛先
-宛名（お名前）
-タイトル名
-本文
-※入力内容はブラウザに自動保存されます
-送信する
-
-
-▶ 最新トーク動画
-×
-
-
-
-
-
-function connectCounter() {
-const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-const ws = new WebSocket(${protocol}//${location.host}/ws);
-ws.onmessage = (event) => {
-document.getElementById("online-count").textContent = event.data;
-};
-ws.onclose = () => {
-setTimeout(connectCounter, 3000);
-};
+<div class="floating-video-box" id="floatingVideo">
+  <div class="video-box-header" id="videoDragHeader">
+    <span>▶ 最新トーク動画</span>
+    <button class="video-close-btn" onclick="document.getElementById('floatingVideo').style.display='none'" title="閉じる">×</button>
+function connectCounter(){
+const protocol=location.protocol==="https:"?"wss:":"ws:";
+const ws=new WebSocket(${protocol}//${location.host}/ws);
+ws.onmessage=(event)=>{document.getElementById("online-count").textContent=event.data};
+ws.onclose=()=>{setTimeout(connectCounter,3000)};
 }
 connectCounter();
-const videoBox = document.getElementById("floatingVideo");
-const dragHeader = document.getElementById("videoDragHeader");
-window.addEventListener("scroll", () => {
-if (window.innerWidth <= 768) {
-if (window.scrollY > 10) {
-videoBox.classList.add("scrolled-top");
-} else {
-videoBox.classList.remove("scrolled-top");
-}
+const videoBox=document.getElementById("floatingVideo");
+const dragHeader=document.getElementById("videoDragHeader");
+window.addEventListener("scroll",()=>{
+if(window.innerWidth<=768){
+if(window.scrollY>10){videoBox.classList.add("scrolled-top")}else{videoBox.classList.remove("scrolled-top")}
 }
 });
-let isDragging = false;
-let offsetX = 0;
-let offsetY = 0;
-dragHeader.addEventListener("mousedown", (e) => {
-if (window.innerWidth <= 768 || e.target.tagName === "BUTTON") return;
-isDragging = true;
-const rect = videoBox.getBoundingClientRect();
-videoBox.style.transform = "none";
-videoBox.style.right = "auto";
-videoBox.style.left = rect.left + "px";
-videoBox.style.top = rect.top + "px";
-offsetX = e.clientX - rect.left;
-offsetY = e.clientY - rect.top;
+let isDragging=false,offsetX=0,offsetY=0;
+dragHeader.addEventListener("mousedown",(e)=>{
+if(window.innerWidth<=768||e.target.tagName==="BUTTON")return;
+isDragging=true;
+const rect=videoBox.getBoundingClientRect();
+videoBox.style.transform="none";
+videoBox.style.right="auto";
+videoBox.style.left=rect.left+"px";
+videoBox.style.top=rect.top+"px";
+offsetX=e.clientX-rect.left;
+offsetY=e.clientY-rect.top;
 });
-document.addEventListener("mousemove", (e) => {
-if (!isDragging) return;
-let newLeft = e.clientX - offsetX;
-let newTop = e.clientY - offsetY;
-newLeft = Math.max(0, Math.min(window.innerWidth - videoBox.offsetWidth, newLeft));
-newTop = Math.max(0, Math.min(window.innerHeight - videoBox.offsetHeight, newTop));
-videoBox.style.left = newLeft + "px";
-videoBox.style.top = newTop + "px";
+document.addEventListener("mousemove",(e)=>{
+if(!isDragging)return;
+let newLeft=Math.max(0,Math.min(window.innerWidth-videoBox.offsetWidth,e.clientX-offsetX));
+let newTop=Math.max(0,Math.min(window.innerHeight-videoBox.offsetHeight,e.clientY-offsetY));
+videoBox.style.left=newLeft+"px";
+videoBox.style.top=newTop+"px";
 });
-document.addEventListener("mouseup", () => {
-isDragging = false;
+document.addEventListener("mouseup",()=>{isDragging=false});
+const openContactBtn=document.getElementById("openContactBtn");
+const closeContactBtn=document.getElementById("closeContactBtn");
+const contactModalOverlay=document.getElementById("contactModalOverlay");
+const contactForm=document.getElementById("contactForm");
+const nameInput=document.getElementById("contactName");
+const subjectInput=document.getElementById("contactSubject");
+const bodyInput=document.getElementById("contactBody");
+window.addEventListener("DOMContentLoaded",()=>{
+if(localStorage.getItem("draft_contact_name"))nameInput.value=localStorage.getItem("draft_contact_name");
+if(localStorage.getItem("draft_contact_subject"))subjectInput.value=localStorage.getItem("draft_contact_subject");
+if(localStorage.getItem("draft_contact_body"))bodyInput.value=localStorage.getItem("draft_contact_body");
 });
-const openContactBtn = document.getElementById("openContactBtn");
-const closeContactBtn = document.getElementById("closeContactBtn");
-const contactModalOverlay = document.getElementById("contactModalOverlay");
-const contactForm = document.getElementById("contactForm");
-const nameInput = document.getElementById("contactName");
-const subjectInput = document.getElementById("contactSubject");
-const bodyInput = document.getElementById("contactBody");
-window.addEventListener("DOMContentLoaded", () => {
-if (localStorage.getItem("draft_contact_name")) {
-nameInput.value = localStorage.getItem("draft_contact_name");
-}
-if (localStorage.getItem("draft_contact_subject")) {
-subjectInput.value = localStorage.getItem("draft_contact_subject");
-}
-if (localStorage.getItem("draft_contact_body")) {
-bodyInput.value = localStorage.getItem("draft_contact_body");
-}
-});
-nameInput.addEventListener("input", () => localStorage.setItem("draft_contact_name", nameInput.value));
-subjectInput.addEventListener("input", () => localStorage.setItem("draft_contact_subject", subjectInput.value));
-bodyInput.addEventListener("input", () => localStorage.setItem("draft_contact_body", bodyInput.value));
-openContactBtn.addEventListener("click", () => {
-contactModalOverlay.classList.add("active");
-});
-closeContactBtn.addEventListener("click", () => {
-contactModalOverlay.classList.remove("active");
-});
-contactModalOverlay.addEventListener("click", (e) => {
-if (e.target === contactModalOverlay) {
-contactModalOverlay.classList.remove("active");
-}
-});
-contactForm.addEventListener("submit", (e) => {
+nameInput.addEventListener("input",()=>localStorage.setItem("draft_contact_name",nameInput.value));
+subjectInput.addEventListener("input",()=>localStorage.setItem("draft_contact_subject",subjectInput.value));
+bodyInput.addEventListener("input",()=>localStorage.setItem("draft_contact_body",bodyInput.value));
+openContactBtn.addEventListener("click",()=>{contactModalOverlay.classList.add("active")});
+closeContactBtn.addEventListener("click",()=>{contactModalOverlay.classList.remove("active")});
+contactModalOverlay.addEventListener("click",(e)=>{if(e.target===contactModalOverlay)contactModalOverlay.classList.remove("active")});
+contactForm.addEventListener("submit",(e)=>{
 e.preventDefault();
-const toEmail = "あなたのメールアドレス@example.com";
-const subject = encodeURIComponent(subjectInput.value);
-const body = encodeURIComponent(【宛名】${nameInput.value}\n\n${bodyInput.value});
+const toEmail="あなたのメールアドレス@example.com";
+const subject=encodeURIComponent(subjectInput.value);
+const body=encodeURIComponent(【宛名】${nameInput.value}\n\n${bodyInput.value});
 localStorage.removeItem("draft_contact_name");
 localStorage.removeItem("draft_contact_subject");
 localStorage.removeItem("draft_contact_body");
-window.location.href = mailto:${toEmail}?subject=${subject}&body=${body};
+window.location.href=mailto:${toEmail}?subject=${subject}&body=${body};
 contactForm.reset();
 contactModalOverlay.classList.remove("active");
 });
