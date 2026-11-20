@@ -193,7 +193,7 @@
       color: #ffffff;
     }
 
-    /* ★冷めさせないクリーンな広告枠（ここを追加しました） */
+    /* 冷めさせないクリーンな広告枠 */
     .ad-container {
       margin: 32px 0;
       text-align: center;
@@ -214,7 +214,9 @@
       align-items: center;
       min-height: 90px;
       overflow-x: auto;
-    }    /* ★動画埋め込みフロートウィンドウ（PC：右真ん中 / スマホ：右上） */
+    }
+
+    /* ★動画埋め込みフロートウィンドウ（PC：右真ん中 / スマホ：右上） */
     .floating-video-box {
       position: fixed;
       z-index: 9999;
@@ -232,7 +234,7 @@
         top: 50%;
         right: 16px;
         transform: translateY(-50%);
-        width: 260px; /* PCでのコンパクトサイズ */
+        width: 260px;
       }
     }
 
@@ -241,7 +243,7 @@
       .floating-video-box {
         top: 12px;
         right: 12px;
-        width: 170px; /* スマホで邪魔にならないミニサイズ */
+        width: 170px;
       }
     }
 
@@ -270,7 +272,7 @@
     .video-iframe-wrap {
       position: relative;
       width: 100%;
-      padding-top: 56.25%; /* 16:9比率 */
+      padding-top: 56.25%;
       background: #000;
     }
     .video-iframe-wrap iframe {
@@ -281,7 +283,6 @@
       height: 100%;
       border: 0;
     }
-
   </style>
 </head>
 <body>
@@ -333,7 +334,7 @@
 
     </div>
 
-    <!-- ★広告枠1：スタンプ一覧と依頼セクションの間 -->
+    <!-- 広告枠1：スタンプ一覧と依頼セクションの間 -->
     <div class="ad-container">
       <div class="ad-label">SPONSORED / 広告</div>
       <div class="ad-box">
@@ -343,7 +344,7 @@
       </div>
     </div>
 
-    <!-- 依頼受付セクション（重複を削除して1つにしました） -->
+    <!-- 依頼受付セクション -->
     <h2 class="section-title">動画化・掲載のご依頼はこちら</h2>
     <div class="action-cards">
       <div class="card">
@@ -358,7 +359,7 @@
       </div>
     </div>
 
-    <!-- ★広告枠2：ページ一番下 -->
+    <!-- 広告枠2：ページ一番下 -->
     <div class="ad-container">
       <div class="ad-label">PR / おすすめツール</div>
       <div class="ad-box">
@@ -369,6 +370,7 @@
     </div>
 
   </div>
+
   <!-- ★動画埋め込みフロートエリア（PC：右真ん中 / スマホ：右上） -->
   <div class="floating-video-box" id="floatingVideo">
     <div class="video-box-header">
@@ -376,7 +378,7 @@
       <button class="video-close-btn" onclick="document.getElementById('floatingVideo').style.display='none'" title="閉じる">×</button>
     </div>
     <div class="video-iframe-wrap">
-      <!-- ▼▼▼ src="https://youtube.com" に書き換えます ▼▼▼ -->
+      <!-- ▼▼▼ 動画公開後、dQw4w9WgXcQ の部分をあなたのYouTube動画IDに書き換えてください ▼▼▼ -->
       <iframe 
         src="https://youtube.com" 
         title="YouTube video player" 
@@ -386,22 +388,10 @@
     </div>
   </div>
 
-  <!-- Cloudflareだけでリアルタイム人数を受け取るスクリプト（最後まで閉じました） -->
+  <!-- Cloudflareだけでリアルタイム人数を受け取るスクリプト -->
   <script>
     function connectCounter() {
       const protocol = location.protocol === "https:" ? "wss:" : "ws:";
       const ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
       ws.onmessage = (event) => {
-        document.getElementById("online-count").textContent = event.data;
-      };
-
-      // 通信が切れたら3秒後に自動再接続
-      ws.onclose = () => {
-        setTimeout(connectCounter, 3000);
-      };
-    }
-    connectCounter();
-  </script>
-</body>
-</html>
