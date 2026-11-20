@@ -4,11 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LINEスタンプ×ボイス動画 コミュニティサイト</title>
-  <!-- スマホ・PC全対応のシンプルなアイコン設定 -->
   <link rel="icon" href="LineIcons.png?v=2" type="image/png">
   <link rel="apple-touch-icon" href="LineIcons.png?v=2">
   <style>
-    /* 全体の基本設定 */
     body {
       margin: 0;
       padding: 0;
@@ -17,7 +15,6 @@
       color: #0f0f0f;
     }
 
-    /* YouTube風のメインバナーエリア */
     .yt-banner-wrapper {
       max-width: 1280px;
       margin: 16px auto 0;
@@ -33,7 +30,6 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
 
-    /* チャンネル情報ヘッダー */
     .channel-header {
       max-width: 1280px;
       margin: 16px auto 0;
@@ -53,7 +49,6 @@
       margin: 0;
     }
 
-    /* リアルタイム閲覧人数バッジ */
     .live-badge {
       display: inline-flex;
       align-items: center;
@@ -84,14 +79,12 @@
       margin: 0;
     }
 
-    /* メインコンテンツエリア */
     .container {
       max-width: 1280px;
       margin: 24px auto;
       padding: 0 16px;
     }
 
-    /* セクション見出し */
     .section-title {
       font-size: 20px;
       font-weight: bold;
@@ -100,7 +93,6 @@
       border-left: 4px solid #06c755;
     }
 
-    /* スタンプ一覧（グリッド表示） */
     .stamp-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -152,7 +144,6 @@
       background-color: #05b34c;
     }
 
-    /* 依頼ボタンエリア */
     .action-cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -193,7 +184,6 @@
       color: #ffffff;
     }
 
-    /* 冷めさせないクリーンな広告枠 */
     .ad-container {
       margin: 32px 0;
       text-align: center;
@@ -216,7 +206,6 @@
       overflow-x: auto;
     }
 
-    /* ★フッター＆お問い合わせリンク */
     .site-footer {
       max-width: 1280px;
       margin: 40px auto 32px;
@@ -242,9 +231,8 @@
       margin-top: 12px;
     }
 
-    /* ★お問い合わせ用 白いモーダルウィンドウ（タブ） */
     .modal-overlay {
-      display: none; /* 初期状態は非表示 */
+      display: none;
       position: fixed;
       top: 0;
       left: 0;
@@ -328,7 +316,7 @@
       color: #555555;
     }
     .form-input::placeholder, .form-textarea::placeholder {
-      color: rgba(0, 0, 0, 0.32); /* 透明感のある薄いヒント文字 */
+      color: rgba(0, 0, 0, 0.32);
     }
     .form-textarea {
       min-height: 110px;
@@ -355,7 +343,6 @@
       background-color: #05b34c;
     }
 
-    /* 動画埋め込みフロートウィンドウ */
     .floating-video-box {
       position: fixed;
       z-index: 9999;
@@ -366,7 +353,6 @@
       overflow: hidden;
     }
 
-    /* PC版（画面幅769px以上）：右真ん中・ドラッグ移動可能 */
     @media (min-width: 769px) {
       .floating-video-box {
         top: 50%;
@@ -383,7 +369,6 @@
       }
     }
 
-    /* スマホ縦端末（画面幅768px以下）：4分割の上から2番目(25%)に配置・スクロールで上へ */
     @media (max-width: 768px) {
       .floating-video-box {
         top: 25%;
@@ -437,22 +422,30 @@
 </head>
 <body>
 
-  <!-- YouTubeメインバナー風の画像表示エリア -->
   <div class="yt-banner-wrapper">
     <img src="banner.png" alt="チャンネルメインバナー" class="yt-banner">
   </div>
 
-  <!-- チャンネル概要エリア -->
   <div class="channel-header">
     <div class="channel-title-row">
       <h1 class="channel-title">LINEスタンプ×ボイス動画 企画サイト</h1>
       <div class="live-badge">
-現在 1 人が閲覧中
+        <span class="live-dot"></span>
+        <span>現在 <strong id="online-count">1</strong> 人が閲覧中</span>
+      </div>
+    </div>
+    <p class="channel-desc">クリエイター様のLINEスタンプを使ったトーク動画を制作・公開中！無償掲載＆100円有償出演の依頼を受付しています。</p>
+  </div>
 
+  <div class="container">
 
-クリエイター様のLINEスタンプを使ったトーク動画を制作・公開中！無償掲載＆100円有償出演の依頼を受付しています。
-販売中・動画登場LINEスタンプ一覧
-かわいいねこのスタンプ
+    <h2 class="section-title">販売中・動画登場LINEスタンプ一覧</h2>
+    <div class="stamp-grid">
+      
+      <div class="stamp-card">
+        <div>
+          <img src="cat1.png" alt="かわいいねこのスタンプ" class="stamp-img">
+          <div class="stamp-name">かわいいねこのスタンプ</div>
 制作：©Dhua
 
 LINE STOREで見る
@@ -499,7 +492,6 @@ PR / おすすめツール
 
 
 
-// 1. リアルタイム人数カウント
 function connectCounter() {
 const protocol = location.protocol === "https:" ? "wss:" : "ws:";
 const ws = new WebSocket(${protocol}//${location.host}/ws);
@@ -511,7 +503,6 @@ setTimeout(connectCounter, 3000);
 };
 }
 connectCounter();
-// 2. スマホスクロール連動 ＆ PCドラッグ移動
 const videoBox = document.getElementById("floatingVideo");
 const dragHeader = document.getElementById("videoDragHeader");
 window.addEventListener("scroll", () => {
@@ -549,7 +540,6 @@ videoBox.style.top = newTop + "px";
 document.addEventListener("mouseup", () => {
 isDragging = false;
 });
-// 3. お問い合わせモーダル（開閉・自動保存・送信処理）
 const openContactBtn = document.getElementById("openContactBtn");
 const closeContactBtn = document.getElementById("closeContactBtn");
 const contactModalOverlay = document.getElementById("contactModalOverlay");
@@ -557,7 +547,6 @@ const contactForm = document.getElementById("contactForm");
 const nameInput = document.getElementById("contactName");
 const subjectInput = document.getElementById("contactSubject");
 const bodyInput = document.getElementById("contactBody");
-// ページ読み込み時に前回保存した文字を復元
 window.addEventListener("DOMContentLoaded", () => {
 if (localStorage.getItem("draft_contact_name")) {
 nameInput.value = localStorage.getItem("draft_contact_name");
@@ -569,36 +558,28 @@ if (localStorage.getItem("draft_contact_body")) {
 bodyInput.value = localStorage.getItem("draft_contact_body");
 }
 });
-// 文字を打つたびにブラウザへ自動保存（閉じても消えない）
 nameInput.addEventListener("input", () => localStorage.setItem("draft_contact_name", nameInput.value));
 subjectInput.addEventListener("input", () => localStorage.setItem("draft_contact_subject", subjectInput.value));
 bodyInput.addEventListener("input", () => localStorage.setItem("draft_contact_body", bodyInput.value));
-// 「お問い合わせへ」をクリックで白いタブを表示
 openContactBtn.addEventListener("click", () => {
 contactModalOverlay.classList.add("active");
 });
-// 「×」ボタンで閉じる（入力文字は保存されたまま）
 closeContactBtn.addEventListener("click", () => {
 contactModalOverlay.classList.remove("active");
 });
-// 白い枠の外側（暗い背景）を押しても閉じる
 contactModalOverlay.addEventListener("click", (e) => {
 if (e.target === contactModalOverlay) {
 contactModalOverlay.classList.remove("active");
 }
 });
-// 送信ボタンを押したときの処理
 contactForm.addEventListener("submit", (e) => {
 e.preventDefault();
-// ▼▼▼ ここもあなたの受信用メールアドレスに書き換えてください ▼▼▼
 const toEmail = "あなたのメールアドレス@example.com";
 const subject = encodeURIComponent(subjectInput.value);
 const body = encodeURIComponent(【宛名】${nameInput.value}\n\n${bodyInput.value});
-// 保存していた下書きをクリア
 localStorage.removeItem("draft_contact_name");
 localStorage.removeItem("draft_contact_subject");
 localStorage.removeItem("draft_contact_body");
-// メール送信画面を起動
 window.location.href = mailto:${toEmail}?subject=${subject}&body=${body};
 contactForm.reset();
 contactModalOverlay.classList.remove("active");
