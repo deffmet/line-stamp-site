@@ -7,7 +7,7 @@
   <!-- スマホ・PC全対応のシンプルなアイコン設定 -->
   <link rel="icon" href="LineIcons.png?v=2" type="image/png">
   <link rel="apple-touch-icon" href="LineIcons.png?v=2">
-<style>
+  <style>
     /* 全体の基本設定 */
     body {
       margin: 0;
@@ -53,7 +53,7 @@
       margin: 0;
     }
 
-    /* ★リアルタイム閲覧人数バッジのデザイン（ここが抜けていました） */
+    /* リアルタイム閲覧人数バッジ */
     .live-badge {
       display: inline-flex;
       align-items: center;
@@ -193,15 +193,27 @@
       color: #ffffff;
     }
 
-    /* 広告枠 */
-    .ad-space {
-      margin: 40px 0 20px;
-      padding: 16px;
-      background-color: #f0f0f0;
-      border-radius: 8px;
+    /* ★冷めさせないクリーンな広告枠（ここを追加しました） */
+    .ad-container {
+      margin: 32px 0;
       text-align: center;
-      font-size: 12px;
-      color: #888;
+    }
+    .ad-label {
+      font-size: 11px;
+      color: #999;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .ad-box {
+      background-color: #ffffff;
+      border: 1px solid #eaeaea;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 90px;
+      overflow-x: auto;
     }
   </style>
 </head>
@@ -216,7 +228,7 @@
   <div class="channel-header">
     <div class="channel-title-row">
       <h1 class="channel-title">LINEスタンプ×ボイス動画 企画サイト</h1>
-      <!-- ★リアルタイム閲覧人数バッジ（ここが抜けていました） -->
+      <!-- リアルタイム閲覧人数バッジ -->
       <div class="live-badge">
         <span class="live-dot"></span>
         <span>現在 <strong id="online-count">1</strong> 人が閲覧中</span>
@@ -254,22 +266,7 @@
 
     </div>
 
-    <!-- 依頼受付セクション -->
-    <h2 class="section-title">動画化・掲載のご依頼はこちら</h2>
-    <div class="action-cards">
-      <div class="card">
-        <h3>無償で動画化・リンク掲載依頼</h3>
-        <p>あなたのLINEスタンプをトーク動画に登場させ、当サイトにスタンプ購入リンクとSNSリンクを掲載します。</p>
-        <a href="#" class="btn btn-free">無償依頼フォームへ（準備中）</a>
-      </div>
-      <div class="card">
-        <h3>有償依頼（100円）で優先登場</h3>
-        <p>お手頃価格の100円で、ご希望のシチュエーションやセリフ指定でスタンプを動画化します。</p>
-        <a href="#" class="btn btn-paid">100円で依頼する（準備中）</a>
-      </div>
-    </div>
-
-    <!-- ★広告枠1：スタンプ一覧と依頼セクションの間（横長バナー用） -->
+    <!-- ★広告枠1：スタンプ一覧と依頼セクションの間 -->
     <div class="ad-container">
       <div class="ad-label">SPONSORED / 広告</div>
       <div class="ad-box">
@@ -279,7 +276,7 @@
       </div>
     </div>
 
-    <!-- 依頼受付セクション -->
+    <!-- 依頼受付セクション（重複を削除して1つにしました） -->
     <h2 class="section-title">動画化・掲載のご依頼はこちら</h2>
     <div class="action-cards">
       <div class="card">
@@ -294,7 +291,7 @@
       </div>
     </div>
 
-    <!-- ★広告枠2：ページ一番下（フッター広告用） -->
+    <!-- ★広告枠2：ページ一番下 -->
     <div class="ad-container">
       <div class="ad-label">PR / おすすめツール</div>
       <div class="ad-box">
@@ -303,10 +300,10 @@
         <!-- ▲▲▲ ここまで ▲▲▲ -->
       </div>
     </div>
+
   </div>
 
-
-  <!-- Cloudflareだけでリアルタイム人数を受け取るスクリプト -->
+  <!-- Cloudflareだけでリアルタイム人数を受け取るスクリプト（最後まで閉じました） -->
   <script>
     function connectCounter() {
       const protocol = location.protocol === "https:" ? "wss:" : "ws:";
