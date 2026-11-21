@@ -59,8 +59,6 @@
 </div>
 
 <script>
-  var API_KEY = "AIzaSyBQsOsgY6DFzSNb0-3Wv14pqk6KlgcOvfc";
-  var PROJECT_ID = "line-stamp-service-35bfe";
   var isRegisterMode = true;
 
   function showMessage(text, isError) {
@@ -102,60 +100,30 @@
     btn.textContent = '通信中...';
 
     try {
-      var endpoint = isRegisterMode
-        ? 'https://googleapis.com' + API_KEY
-        : 'https://googleapis.com' + API_KEY;
-
-      var res = await fetch(endpoint, {
+      var res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email, password: password, returnSecureToken: true })
+        body: JSON.stringify({
+          mode: isRegisterMode ? 'register' : 'login',
+          email: email,
+          password: password,
+          username: username,
+          role: role
+        })
       });
       var data = await res.json();
 
-      if (!res.ok) {
-        var errCode = (data.error && data.error.message) || '登録に失敗しました';
+      if (!res.ok || !data.ok) {
+        var errCode = data.error || '登録に失敗しました';
         if (errCode === 'EMAIL_EXISTS') errCode = 'このメールアドレスは既に登録されています。下の「ログイン」からログインしてください。';
         if (errCode === 'INVALID_LOGIN_CREDENTIALS' || errCode === 'EMAIL_NOT_FOUND' || errCode === 'INVALID_PASSWORD') errCode = 'メールアドレスまたはパスワードが間違っています。';
         if (errCode.indexOf('WEAK_PASSWORD') !== -1) errCode = 'パスワードは6文字以上で入力してください。';
         throw new Error(errCode);
       }
 
-      var uid = data.localId;
-      var idToken = data.idToken;
-      var userProfile = { uid: uid, email: email, username: username, role: role, idToken: idToken };
-
-      if (isRegisterMode) {
-        // Firestoreへ会員情報を保存
-        await fetch('https://googleapis.com' + PROJECT_ID + '/databases/(default)/documents/users?documentId=' + uid, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
-          body: JSON.stringify({
-            fields: {
-              username: { stringValue: username },
-              role: { stringValue: role },
-              email: { stringValue: email },
-              phoneVerified: { booleanValue: false }
-            }
-          })
-        });
-      } else {
-        // Firestoreから会員情報を取得
-        var docRes = await fetch('https://googleapis.com' + PROJECT_ID + '/databases/(default)/documents/users/' + uid, {
-          headers: { 'Authorization': 'Bearer ' + idToken }
-        });
-        if (docRes.ok) {
-          var docData = await docRes.json();
-          if (docData.fields) {
-            userProfile.username = docData.fields.username ? docData.fields.username.stringValue : email;
-            userProfile.role = docData.fields.role ? docData.fields.role.stringValue : '';
-          }
-        }
-      }
-
-      localStorage.setItem('site_user', JSON.stringify(userProfile));
+      localStorage.setItem('site_user', JSON.stringify(data.user));
       showMessage(isRegisterMode ? '会員登録が完了しました！' : 'ログインしました！', false);
-      renderMypage(userProfile);
+      renderMypage(data.user);
 
     } catch (e) {
       showMessage('エラー: ' + e.message, true);
