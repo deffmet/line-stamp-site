@@ -113,20 +113,22 @@ export default {
         const body = await request.json();
         const { mode, email, password, username, role } = body;
 
-        const endpoint =
-          mode === "register"
-            ? `https://googleapis.com{FIREBASE_API_KEY}`
-            : `https://googleapis.com{FIREBASE_API_KEY}`;
+                      var authHost = "identitytoolkit." + "googleapis.com";
+        var fsHost = "firestore." + "googleapis.com";
+
+        var endpoint = mode === "register"
+          ? "https://" + authHost + "/v1/accounts:signUp?key=" + FIREBASE_API_KEY
+          : "https://" + authHost + "/v1/accounts:signInWithPassword?key=" + FIREBASE_API_KEY;
 
         const fbRes = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, returnSecureToken: true }),
+          body: JSON.stringify({ email: email, password: password, returnSecureToken: true }),
         });
         const fbData = await fbRes.json();
 
         if (!fbRes.ok) {
-          return new Response(JSON.stringify({ ok: false, error: fbData.error?.message || "AUTH_ERROR" }), {
+          return new Response(JSON.stringify({ ok: false, error: (fbData.error && fbData.error.message) || "AUTH_ERROR" }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
           });
@@ -138,43 +140,40 @@ export default {
         let finalRole = role || "";
 
         if (mode === "register") {
-          // FirestoreとCloudflareの両方に会員情報を保存
-          await fetch(
-            `https://googleapis.com{FIREBASE_PROJECT_ID}/databases/(default)/documents/users?documentId=${uid}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-              body: JSON.stringify({
-                fields: {
-                  username: { stringValue: finalUsername },
-                  role: { stringValue: finalRole },
-                  email: { stringValue: email },
-                  phoneVerified: { booleanValue: false },
-                },
-              }),
-            }
-          );
+          var fsUrl = "https://" + fsHost + "/v1/projects/" + FIREBASE_PROJECT_ID + "/databases/(default)/documents/users?documentId=" + uid;
+          await fetch(fsUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + idToken },
+            body: JSON.stringify({
+              fields: {
+                username: { stringValue: finalUsername },
+                role: { stringValue: finalRole },
+                email: { stringValue: email },
+                phoneVerified: { booleanValue: false },
+              },
+            }),
+          });
           await stub.fetch(
             new Request("https://dummy/api/save-user", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ uid, username: finalUsername, role: finalRole, email }),
+              body: JSON.stringify({ uid: uid, username: finalUsername, role: finalRole, email: email }),
             })
           );
         } else {
-          // ログイン時はFirestoreから名前と区分を取得
-          const docRes = await fetch(
-            `https://googleapis.com{FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}`,
-            { headers: { Authorization: `Bearer ${idToken}` } }
-          );
+          var docUrl = "https://" + fsHost + "/v1/projects/" + FIREBASE_PROJECT_ID + "/databases/(default)/documents/users/" + uid;
+          const docRes = await fetch(docUrl, {
+            headers: { "Authorization": "Bearer " + idToken }
+          });
           if (docRes.ok) {
             const docData = await docRes.json();
             if (docData.fields) {
-              finalUsername = docData.fields.username?.stringValue || email;
-              finalRole = docData.fields.role?.stringValue || "";
+              finalUsername = (docData.fields.username && docData.fields.username.stringValue) || email;
+              finalRole = (docData.fields.role && docData.fields.role.stringValue) || "";
             }
           }
         }
+
 
         return new Response(
           JSON.stringify({ ok: true, user: { uid, email, username: finalUsername, role: finalRole } }),
