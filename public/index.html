@@ -163,13 +163,17 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
       <button type="button" class="modal-close-btn" id="closeContactBtn" title="閉じる">×</button>
     </div>
     <form id="contactForm">
-           <div class="form-group">
+      <div class="form-group">
         <label class="form-label">宛先</label>
-        <input type="text" class="form-input" value="LINEスタンプ宣伝所運営事務局" readonly>
+        <input type="text" class="form-input" value="LINEスタンプ×ボイス動画 運営事務局（©Dhua）" readonly>
       </div>
       <div class="form-group">
         <label class="form-label">宛名（お名前）</label>
         <input type="text" class="form-input" id="contactName" placeholder="お名前・クリエイター名" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">確認用メールアドレス（控え送信先）</label>
+        <input type="email" class="form-input" id="contactEmail" placeholder="example@mail.com" required>
       </div>
       <div class="form-group">
         <label class="form-label">タイトル名</label>
@@ -233,26 +237,29 @@ document.addEventListener("mousemove",(e)=>{
 });
 document.addEventListener("mouseup",()=>{isDragging=false});
 
-const openContactBtn=document.getElementById("openContactBtn");
-const closeContactBtn=document.getElementById("closeContactBtn");
-const contactModalOverlay=document.getElementById("contactModalOverlay");
-const contactForm=document.getElementById("contactForm");
-const nameInput=document.getElementById("contactName");
-const subjectInput=document.getElementById("contactSubject");
-const bodyInput=document.getElementById("contactBody");
+const openContactBtn = document.getElementById("openContactBtn");
+const closeContactBtn = document.getElementById("closeContactBtn");
+const contactModalOverlay = document.getElementById("contactModalOverlay");
+const contactForm = document.getElementById("contactForm");
+const nameInput = document.getElementById("contactName");
+const emailInput = document.getElementById("contactEmail");
+const subjectInput = document.getElementById("contactSubject");
+const bodyInput = document.getElementById("contactBody");
 
-window.addEventListener("DOMContentLoaded",()=>{
-  if(localStorage.getItem("draft_contact_name"))nameInput.value=localStorage.getItem("draft_contact_name");
-  if(localStorage.getItem("draft_contact_subject"))subjectInput.value=localStorage.getItem("draft_contact_subject");
-  if(localStorage.getItem("draft_contact_body"))bodyInput.value=localStorage.getItem("draft_contact_body");
+window.addEventListener("DOMContentLoaded", () => {
+  if (localStorage.getItem("draft_contact_name")) nameInput.value = localStorage.getItem("draft_contact_name");
+  if (localStorage.getItem("draft_contact_email")) emailInput.value = localStorage.getItem("draft_contact_email");
+  if (localStorage.getItem("draft_contact_subject")) subjectInput.value = localStorage.getItem("draft_contact_subject");
+  if (localStorage.getItem("draft_contact_body")) bodyInput.value = localStorage.getItem("draft_contact_body");
 });
-nameInput.addEventListener("input",()=>localStorage.setItem("draft_contact_name",nameInput.value));
-subjectInput.addEventListener("input",()=>localStorage.setItem("draft_contact_subject",subjectInput.value));
-bodyInput.addEventListener("input",()=>localStorage.setItem("draft_contact_body",bodyInput.value));
+nameInput.addEventListener("input", () => localStorage.setItem("draft_contact_name", nameInput.value));
+emailInput.addEventListener("input", () => localStorage.setItem("draft_contact_email", emailInput.value));
+subjectInput.addEventListener("input", () => localStorage.setItem("draft_contact_subject", subjectInput.value));
+bodyInput.addEventListener("input", () => localStorage.setItem("draft_contact_body", bodyInput.value));
 
-openContactBtn.addEventListener("click",()=>{contactModalOverlay.classList.add("active")});
-closeContactBtn.addEventListener("click",()=>{contactModalOverlay.classList.remove("active")});
-contactModalOverlay.addEventListener("click",(e)=>{if(e.target===contactModalOverlay)contactModalOverlay.classList.remove("active")});
+openContactBtn.addEventListener("click", () => { contactModalOverlay.classList.add("active"); });
+closeContactBtn.addEventListener("click", () => { contactModalOverlay.classList.remove("active"); });
+contactModalOverlay.addEventListener("click", (e) => { if (e.target === contactModalOverlay) contactModalOverlay.classList.remove("active"); });
 
 contactForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -261,23 +268,41 @@ contactForm.addEventListener("submit", async (e) => {
   submitBtn.textContent = "送信中...";
 
   try {
+    // 1. 運営の受信BOX（Cloudflare）へ問い合わせ内容を保存
     const res = await fetch("/api/contact", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: nameInput.value,
+        name: `${nameInput.value} (${emailInput.value})`,
         subject: subjectInput.value,
         message: bodyInput.value
       })
     });
 
     if (res.ok) {
-      alert("お問い合わせを送信しました！ありがとうございます。");
+      // 2. 問い合わせ本人宛の確認用メールを作成
+      const userEmail = emailInput.value;
+      const confirmSubject = encodeURIComponent(`【お問い合わせ控え】${subjectInput.value}`);
+      const confirmBody = encodeURIComponent(
+        `【宛名】${nameInput.value}\n` +
+        `【タイトル】${subjectInput.value}\n` +
+        `【本文】\n${bodyInput.value}\n\n` +
+        `------------------------------------\n` +
+        `以上の内容で問い合わせしました。\n` +
+        `（LINEスタンプ宣伝所 運営事務局）`
+      );
+
       localStorage.removeItem("draft_contact_name");
+      localStorage.removeItem("draft_contact_email");
       localStorage.removeItem("draft_contact_subject");
       localStorage.removeItem("draft_contact_body");
+
+      alert("お問い合わせを受け付けました！続いてご本人確認用の控えメール画面が開きます。");
       contactForm.reset();
       contactModalOverlay.classList.remove("active");
+
+      // 本人のメールアドレス宛に確認メール画面を開く
+      window.location.href = `mailto:${userEmail}?subject=${confirmSubject}&body=${confirmBody}`;
     } else {
       alert("送信に失敗しました。");
     }
