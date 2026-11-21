@@ -65,20 +65,27 @@
 <script>
   var firebaseConfig = {
     apiKey: "AIzaSyBQsOsgY6DFzSNb0-3Wv14pqk6KlgcOvfc",
-    authDomain: "://firebaseapp.com",
+    authDomain: "line-stamp-service-35bfe.firebaseapp.com",
     projectId: "line-stamp-service-35bfe",
     storageBucket: "line-stamp-service-35bfe.firebasestorage.app",
     messagingSenderId: "1075031755889",
     appId: "1:1075031755889:web:33e6c96a9ddd7226089fd0"
   };
 
-  firebase.initializeApp(firebaseConfig);
-  var auth = firebase.auth();
-  var db = firebase.firestore();
-    var isRegisterMode = true;
+  function getFirebaseServices() {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    return {
+      auth: firebase.auth(),
+      db: firebase.firestore()
+    };
+  }
 
-  function showMessage(text, isError = true) {
-    const msgBox = document.getElementById('msg-box');
+  var isRegisterMode = true;
+
+  function showMessage(text, isError) {
+    var msgBox = document.getElementById('msg-box');
     msgBox.textContent = text;
     msgBox.className = 'message ' + (isError ? 'error' : 'success');
     msgBox.style.display = 'block';
@@ -95,28 +102,39 @@
   }
 
   async function handleAuth() {
-    const btn = document.getElementById('submit-btn');
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const username = document.getElementById('username').value.trim();
-    const role = document.getElementById('user-role').value;
+    var btn = document.getElementById('submit-btn');
+    var email = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+    var username = document.getElementById('username').value.trim();
+    var role = document.getElementById('user-role').value;
 
-    if (!email || !password) return showMessage('メールアドレスとパスワードを入力してください。');
+    if (!email || !password) return showMessage('メールアドレスとパスワードを入力してください。', true);
     btn.disabled = true;
     btn.textContent = '通信中...';
 
     try {
+      var services = getFirebaseServices();
       if (isRegisterMode) {
-        if (!username) { btn.disabled = false; btn.textContent = '無料で登録する'; return showMessage('ユーザー名を入力してください。'); }
-        const cred = await auth.createUserWithEmailAndPassword(email, password);
-        await db.collection("users").doc(cred.user.uid).set({ username, role, email, phoneVerified: false, createdAt: new Date() });
+        if (!username) {
+          btn.disabled = false;
+          btn.textContent = '無料で登録する';
+          return showMessage('ユーザー名を入力してください。', true);
+        }
+        var cred = await services.auth.createUserWithEmailAndPassword(email, password);
+        await services.db.collection("users").doc(cred.user.uid).set({
+          username: username,
+          role: role,
+          email: email,
+          phoneVerified: false,
+          createdAt: new Date()
+        });
         showMessage('会員登録が完了しました！', false);
       } else {
-        await auth.signInWithEmailAndPassword(email, password);
+        await services.auth.signInWithEmailAndPassword(email, password);
         showMessage('ログインしました！', false);
       }
     } catch (e) {
-      showMessage('エラー: ' + e.message);
+      showMessage('エラー: ' + e.message, true);
     } finally {
       btn.disabled = false;
       btn.textContent = isRegisterMode ? '無料で登録する' : 'ログインする';
@@ -124,31 +142,35 @@
   }
 
   function handleLogout() {
-    auth.signOut();
+    getFirebaseServices().auth.signOut();
   }
 
-  auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      document.getElementById('auth-area').style.display = 'none';
-      document.getElementById('mypage-area').style.display = 'block';
-      try {
-        const snap = await db.collection("users").doc(user.uid).get();
-        if (snap.exists) {
-          const d = snap.data();
-          const roleMap = { client: '依頼者', creator: 'クリエイター', both: '依頼者・クリエイター両方' };
-          document.getElementById('welcome-text').textContent = `ようこそ、${d.username} さん！`;
-          document.getElementById('role-text').textContent = `登録区分：${roleMap[d.role] || ''}`;
-        } else {
-          document.getElementById('welcome-text').textContent = `ログイン中: ${user.email}`;
+  window.addEventListener('load', function() {
+    var services = getFirebaseServices();
+    services.auth.onAuthStateChanged(async function(user) {
+      if (user) {
+        document.getElementById('auth-area').style.display = 'none';
+        document.getElementById('mypage-area').style.display = 'block';
+        try {
+          var snap = await services.db.collection("users").doc(user.uid).get();
+          if (snap.exists) {
+            var d = snap.data();
+            var roleMap = { client: '依頼者', creator: 'クリエイター', both: '依頼者・クリエイター両方' };
+            document.getElementById('welcome-text').textContent = 'ようこそ、' + d.username + ' さん！';
+            document.getElementById('role-text').textContent = '登録区分：' + (roleMap[d.role] || '');
+          } else {
+            document.getElementById('welcome-text').textContent = 'ログイン中: ' + user.email;
+          }
+        } catch (e) {
+          document.getElementById('welcome-text').textContent = 'ログイン中: ' + user.email;
         }
-      } catch (e) {
-        document.getElementById('welcome-text').textContent = `ログイン中: ${user.email}`;
+      } else {
+        document.getElementById('auth-area').style.display = 'block';
+        document.getElementById('mypage-area').style.display = 'none';
       }
-    } else {
-      document.getElementById('auth-area').style.display = 'block';
-      document.getElementById('mypage-area').style.display = 'none';
-    }
+    });
   });
 </script>
+
 </body>
 </html>
