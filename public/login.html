@@ -19,6 +19,10 @@
     #mypage-area{display:none;text-align:center}
     .logout-btn{background:#666}
   </style>
+  <!-- 確実に動くFirebase読み込みスクリプト -->
+  <script src="https://gstatic.com"></script>
+  <script src="https://gstatic.com"></script>
+  <script src="https://gstatic.com"></script>
 </head>
 <body>
 <div class="card">
@@ -44,8 +48,8 @@
       <label>パスワード（6文字以上）</label>
       <input type="password" id="password" placeholder="******">
     </div>
-    <button type="button" id="submit-btn">無料で登録する</button>
-    <div class="toggle-link" id="toggle-mode">すでにアカウントをお持ちの方はこちら（ログイン）</div>
+    <button type="button" id="submit-btn" onclick="handleAuth()">無料で登録する</button>
+    <div class="toggle-link" id="toggle-mode" onclick="toggleAuthMode()">すでにアカウントをお持ちの方はこちら（ログイン）</div>
   </div>
 
   <div id="mypage-area">
@@ -53,16 +57,12 @@
     <p id="welcome-text" style="font-weight:bold;font-size:18px"></p>
     <p id="role-text" style="font-size:14px;color:#555"></p>
     <a href="index.html" style="display:block;margin:20px 0;color:#06c755;font-weight:bold">トップページへ戻る</a>
-    <button type="button" class="logout-btn" id="logout-btn">ログアウト</button>
+    <button type="button" class="logout-btn" onclick="handleLogout()">ログアウト</button>
   </div>
   <div id="msg-box" class="message"></div>
 </div>
 
-<script type="module">
-  import { initializeApp } from "https://gstatic.com";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://gstatic.com";
-  import { getFirestore, doc, setDoc, getDoc } from "https://gstatic.com";
-
+<script>
   const firebaseConfig = {
     apiKey: "AIzaSyBQsOsgY6DFzSNb0-3Wv14pqk6KlgcOvfc",
     authDomain: "://firebaseapp.com",
@@ -72,29 +72,29 @@
     appId: "1:1075031755889:web:33e6c96a9ddd7226089fd0"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
   let isRegisterMode = true;
 
-  const msgBox = document.getElementById('msg-box');
   function showMessage(text, isError = true) {
+    const msgBox = document.getElementById('msg-box');
     msgBox.textContent = text;
     msgBox.className = 'message ' + (isError ? 'error' : 'success');
     msgBox.style.display = 'block';
   }
 
-  document.getElementById('toggle-mode').onclick = () => {
+  function toggleAuthMode() {
     isRegisterMode = !isRegisterMode;
-    msgBox.style.display = 'none';
+    document.getElementById('msg-box').style.display = 'none';
     document.getElementById('form-title').textContent = isRegisterMode ? '新規会員登録' : 'ログイン';
     document.getElementById('name-group').style.display = isRegisterMode ? 'block' : 'none';
     document.getElementById('role-group').style.display = isRegisterMode ? 'block' : 'none';
     document.getElementById('submit-btn').textContent = isRegisterMode ? '無料で登録する' : 'ログインする';
     document.getElementById('toggle-mode').textContent = isRegisterMode ? 'すでにアカウントをお持ちの方はこちら（ログイン）' : '初めての方はこちら（新規会員登録）';
-  };
+  }
 
-  document.getElementById('submit-btn').onclick = async () => {
+  async function handleAuth() {
     const btn = document.getElementById('submit-btn');
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
@@ -103,16 +103,16 @@
 
     if (!email || !password) return showMessage('メールアドレスとパスワードを入力してください。');
     btn.disabled = true;
-    btn.textContent = '処理中...';
+    btn.textContent = '通信中...';
 
     try {
       if (isRegisterMode) {
         if (!username) { btn.disabled = false; btn.textContent = '無料で登録する'; return showMessage('ユーザー名を入力してください。'); }
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        await setDoc(doc(db, "users", cred.user.uid), { username, role, email, phoneVerified: false, createdAt: new Date() });
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        await db.collection("users").doc(cred.user.uid).set({ username, role, email, phoneVerified: false, createdAt: new Date() });
         showMessage('会員登録が完了しました！', false);
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        await auth.signInWithEmailAndPassword(email, password);
         showMessage('ログインしました！', false);
       }
     } catch (e) {
@@ -121,15 +121,19 @@
       btn.disabled = false;
       btn.textContent = isRegisterMode ? '無料で登録する' : 'ログインする';
     }
-  };
+  }
 
-  onAuthStateChanged(auth, async (user) => {
+  function handleLogout() {
+    auth.signOut();
+  }
+
+  auth.onAuthStateChanged(async (user) => {
     if (user) {
       document.getElementById('auth-area').style.display = 'none';
       document.getElementById('mypage-area').style.display = 'block';
       try {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        if (snap.exists()) {
+        const snap = await db.collection("users").doc(user.uid).get();
+        if (snap.exists) {
           const d = snap.data();
           const roleMap = { client: '依頼者', creator: 'クリエイター', both: '依頼者・クリエイター両方' };
           document.getElementById('welcome-text').textContent = `ようこそ、${d.username} さん！`;
@@ -145,8 +149,6 @@
       document.getElementById('mypage-area').style.display = 'none';
     }
   });
-
-  document.getElementById('logout-btn').onclick = () => signOut(auth);
 </script>
 </body>
 </html>
