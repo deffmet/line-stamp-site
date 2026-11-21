@@ -41,6 +41,10 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 .live-badge{display:inline-flex;align-items:center;gap:6px;background-color:#fff0f0;border:1px solid #ffcccc;color:#d93025;font-size:13px;font-weight:bold;padding:4px 12px;border-radius:20px}
 .live-dot{width:8px;height:8px;background-color:#ff0000;border-radius:50%;animation:blink 1.5s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.auth-nav-btn{display:inline-flex;align-items:center;gap:6px;background-color:#06c755;color:#fff;text-decoration:none;font-weight:bold;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 2px 6px rgba(6,199,85,0.25);margin-left:auto}
+.auth-nav-btn:hover{background-color:#05b34c}
+.auth-nav-btn.logged-in{background-color:#0f0f0f}
+
 .channel-desc{font-size:14px;color:#606060;margin:0}
 .container{max-width:1280px;margin:24px auto;padding:0 16px}
 .section-title{font-size:20px;font-weight:bold;margin:0 0 16px;padding-left:10px;border-left:4px solid #06c755}
@@ -200,6 +204,7 @@ img, video {
       <span class="live-dot"></span>
       <span>現在 <strong id="online-count">1</strong> 人が閲覧中</span>
     </div>
+        <a href="login.html" id="headerAuthBtn" class="auth-nav-btn">👤 無料会員登録 / ログイン</a>
   </div>
   <p class="channel-desc">クリエイター様のLINEスタンプを使ったトーク動画を制作・公開中！無償掲載＆100円有償出演の依頼を受付しています。</p>
 </div>
@@ -473,6 +478,30 @@ document.addEventListener("dragstart", (e) => {
 });
 
 </script>
+<script type="module">
+  import { initializeApp } from "https://gstatic.com";
+  import { getAuth, onAuthStateChanged } from "https://gstatic.com";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBQsOsgY6DFzSNb0-3Wv14pqk6KlgcOvfc",
+    authDomain: "://firebaseapp.com",
+    projectId: "line-stamp-service-35bfe",
+    storageBucket: "line-stamp-service-35bfe.firebasestorage.app",
+    messagingSenderId: "1075031755889",
+    appId: "1:1075031755889:web:33e6c96a9ddd7226089fd0"
+  };
+
+  const auth = getAuth(initializeApp(firebaseConfig));
+  const headerAuthBtn = document.getElementById("headerAuthBtn");
+
+  onAuthStateChanged(auth, (user) => {
+    headerAuthBtn.textContent = user ? "👤 マイページ（ログイン中）" : "👤 無料会員登録 / ログイン";
+    headerAuthBtn.classList.toggle("logged-in", Boolean(user));
+  });
+</script>
+
+
+  
 </body>
 </html>
 
