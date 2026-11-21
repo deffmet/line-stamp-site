@@ -19,10 +19,6 @@
     #mypage-area{display:none;text-align:center}
     .logout-btn{background:#666}
   </style>
-  <!-- 確実に動くFirebase読み込みスクリプト -->
-  <script src="https://gstatic.com"></script>
-  <script src="https://gstatic.com"></script>
-  <script src="https://gstatic.com"></script>
 </head>
 <body>
 <div class="card">
@@ -63,25 +59,8 @@
 </div>
 
 <script>
-  var firebaseConfig = {
-    apiKey: "AIzaSyBQsOsgY6DFzSNb0-3Wv14pqk6KlgcOvfc",
-    authDomain: "line-stamp-service-35bfe.firebaseapp.com",
-    projectId: "line-stamp-service-35bfe",
-    storageBucket: "line-stamp-service-35bfe.firebasestorage.app",
-    messagingSenderId: "1075031755889",
-    appId: "1:1075031755889:web:33e6c96a9ddd7226089fd0"
-  };
-
-  function getFirebaseServices() {
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-    return {
-      auth: firebase.auth(),
-      db: firebase.firestore()
-    };
-  }
-
+  var API_KEY = "AIzaSyBQsOsgY6DFzSNb0-3Wv14pqk6KlgcOvfc";
+  var PROJECT_ID = "line-stamp-service-35bfe";
   var isRegisterMode = true;
 
   function showMessage(text, isError) {
@@ -101,6 +80,14 @@
     document.getElementById('toggle-mode').textContent = isRegisterMode ? 'すでにアカウントをお持ちの方はこちら（ログイン）' : '初めての方はこちら（新規会員登録）';
   }
 
+  function renderMypage(userData) {
+    document.getElementById('auth-area').style.display = 'none';
+    document.getElementById('mypage-area').style.display = 'block';
+    var roleMap = { client: '依頼者', creator: 'クリエイター', both: '依頼者・クリエイター両方' };
+    document.getElementById('welcome-text').textContent = 'ようこそ、' + (userData.username || userData.email) + ' さん！';
+    document.getElementById('role-text').textContent = userData.role ? '登録区分：' + (roleMap[userData.role] || '') : '';
+  }
+
   async function handleAuth() {
     var btn = document.getElementById('submit-btn');
     var email = document.getElementById('email').value.trim();
@@ -109,30 +96,67 @@
     var role = document.getElementById('user-role').value;
 
     if (!email || !password) return showMessage('メールアドレスとパスワードを入力してください。', true);
+    if (isRegisterMode && !username) return showMessage('ユーザー名を入力してください。', true);
+
     btn.disabled = true;
     btn.textContent = '通信中...';
 
     try {
-      var services = getFirebaseServices();
-      if (isRegisterMode) {
-        if (!username) {
-          btn.disabled = false;
-          btn.textContent = '無料で登録する';
-          return showMessage('ユーザー名を入力してください。', true);
-        }
-        var cred = await services.auth.createUserWithEmailAndPassword(email, password);
-        await services.db.collection("users").doc(cred.user.uid).set({
-          username: username,
-          role: role,
-          email: email,
-          phoneVerified: false,
-          createdAt: new Date()
-        });
-        showMessage('会員登録が完了しました！', false);
-      } else {
-        await services.auth.signInWithEmailAndPassword(email, password);
-        showMessage('ログインしました！', false);
+      var endpoint = isRegisterMode
+        ? 'https://googleapis.com' + API_KEY
+        : 'https://googleapis.com' + API_KEY;
+
+      var res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password, returnSecureToken: true })
+      });
+      var data = await res.json();
+
+      if (!res.ok) {
+        var errCode = (data.error && data.error.message) || '登録に失敗しました';
+        if (errCode === 'EMAIL_EXISTS') errCode = 'このメールアドレスは既に登録されています。下の「ログイン」からログインしてください。';
+        if (errCode === 'INVALID_LOGIN_CREDENTIALS' || errCode === 'EMAIL_NOT_FOUND' || errCode === 'INVALID_PASSWORD') errCode = 'メールアドレスまたはパスワードが間違っています。';
+        if (errCode.indexOf('WEAK_PASSWORD') !== -1) errCode = 'パスワードは6文字以上で入力してください。';
+        throw new Error(errCode);
       }
+
+      var uid = data.localId;
+      var idToken = data.idToken;
+      var userProfile = { uid: uid, email: email, username: username, role: role, idToken: idToken };
+
+      if (isRegisterMode) {
+        // Firestoreへ会員情報を保存
+        await fetch('https://googleapis.com' + PROJECT_ID + '/databases/(default)/documents/users?documentId=' + uid, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+          body: JSON.stringify({
+            fields: {
+              username: { stringValue: username },
+              role: { stringValue: role },
+              email: { stringValue: email },
+              phoneVerified: { booleanValue: false }
+            }
+          })
+        });
+      } else {
+        // Firestoreから会員情報を取得
+        var docRes = await fetch('https://googleapis.com' + PROJECT_ID + '/databases/(default)/documents/users/' + uid, {
+          headers: { 'Authorization': 'Bearer ' + idToken }
+        });
+        if (docRes.ok) {
+          var docData = await docRes.json();
+          if (docData.fields) {
+            userProfile.username = docData.fields.username ? docData.fields.username.stringValue : email;
+            userProfile.role = docData.fields.role ? docData.fields.role.stringValue : '';
+          }
+        }
+      }
+
+      localStorage.setItem('site_user', JSON.stringify(userProfile));
+      showMessage(isRegisterMode ? '会員登録が完了しました！' : 'ログインしました！', false);
+      renderMypage(userProfile);
+
     } catch (e) {
       showMessage('エラー: ' + e.message, true);
     } finally {
@@ -142,35 +166,20 @@
   }
 
   function handleLogout() {
-    getFirebaseServices().auth.signOut();
+    localStorage.removeItem('site_user');
+    document.getElementById('auth-area').style.display = 'block';
+    document.getElementById('mypage-area').style.display = 'none';
+    document.getElementById('msg-box').style.display = 'none';
   }
 
   window.addEventListener('load', function() {
-    var services = getFirebaseServices();
-    services.auth.onAuthStateChanged(async function(user) {
-      if (user) {
-        document.getElementById('auth-area').style.display = 'none';
-        document.getElementById('mypage-area').style.display = 'block';
-        try {
-          var snap = await services.db.collection("users").doc(user.uid).get();
-          if (snap.exists) {
-            var d = snap.data();
-            var roleMap = { client: '依頼者', creator: 'クリエイター', both: '依頼者・クリエイター両方' };
-            document.getElementById('welcome-text').textContent = 'ようこそ、' + d.username + ' さん！';
-            document.getElementById('role-text').textContent = '登録区分：' + (roleMap[d.role] || '');
-          } else {
-            document.getElementById('welcome-text').textContent = 'ログイン中: ' + user.email;
-          }
-        } catch (e) {
-          document.getElementById('welcome-text').textContent = 'ログイン中: ' + user.email;
-        }
-      } else {
-        document.getElementById('auth-area').style.display = 'block';
-        document.getElementById('mypage-area').style.display = 'none';
-      }
-    });
+    var saved = localStorage.getItem('site_user');
+    if (saved) {
+      try {
+        renderMypage(JSON.parse(saved));
+      } catch (e) {}
+    }
   });
 </script>
-
 </body>
 </html>
