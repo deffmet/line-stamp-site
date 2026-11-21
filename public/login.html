@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>新規会員登録 / ログイン</title>
+  <script src="https://cloudflare.com" async defer></script>
   <style>
     body{font-family:sans-serif;background:#f4f6f9;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;padding:16px;box-sizing:border-box}
     .card{background:#fff;padding:28px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);width:100%;max-width:400px}
@@ -18,12 +19,16 @@
     .success{background:#e6ffed;color:#00802b}
     #mypage-area{display:none;text-align:center}
     .logout-btn{background:#666}
+    .hp-trap{position:absolute;left:-9999px;opacity:0;height:0;width:0}
   </style>
 </head>
 <body>
 <div class="card">
   <div id="auth-area">
     <h2 id="form-title">新規会員登録</h2>
+    <div class="hp-trap" aria-hidden="true">
+      <input type="text" id="website_url" tabindex="-1" autocomplete="off">
+    </div>
     <div class="form-group" id="name-group">
       <label>ユーザー名（ニックネーム）</label>
       <input type="text" id="username" placeholder="例：クリエイター太郎">
@@ -44,6 +49,9 @@
       <label>パスワード（6文字以上）</label>
       <input type="password" id="password" placeholder="******">
     </div>
+
+    <div class="cf-turnstile" data-sitekey="0x4AAAAAAGMV95IiTAxNXRVR" style="margin:10px 0;"></div>
+
     <button type="button" id="submit-btn" onclick="handleAuth()">無料で登録する</button>
     <div class="toggle-link" id="toggle-mode" onclick="toggleAuthMode()">すでにアカウントをお持ちの方はこちら（ログイン）</div>
   </div>
@@ -92,12 +100,15 @@
     var password = document.getElementById('password').value;
     var username = document.getElementById('username').value.trim();
     var role = document.getElementById('user-role').value;
+    var trap = document.getElementById('website_url').value;
+    var turnstileInput = document.querySelector('[name="cf-turnstile-response"]');
+    var cfToken = turnstileInput ? turnstileInput.value : '';
 
     if (!email || !password) return showMessage('メールアドレスとパスワードを入力してください。', true);
     if (isRegisterMode && !username) return showMessage('ユーザー名を入力してください。', true);
 
     btn.disabled = true;
-    btn.textContent = '通信中...';
+    btn.textContent = 'セキュリティ確認中...';
 
     try {
       var res = await fetch('/api/auth', {
@@ -108,7 +119,9 @@
           email: email,
           password: password,
           username: username,
-          role: role
+          role: role,
+          trap: trap,
+          cfToken: cfToken
         })
       });
       var data = await res.json();
@@ -127,6 +140,7 @@
 
     } catch (e) {
       showMessage('エラー: ' + e.message, true);
+      if (window.turnstile) window.turnstile.reset();
     } finally {
       btn.disabled = false;
       btn.textContent = isRegisterMode ? '無料で登録する' : 'ログインする';
@@ -138,14 +152,13 @@
     document.getElementById('auth-area').style.display = 'block';
     document.getElementById('mypage-area').style.display = 'none';
     document.getElementById('msg-box').style.display = 'none';
+    if (window.turnstile) window.turnstile.reset();
   }
 
   window.addEventListener('load', function() {
     var saved = localStorage.getItem('site_user');
     if (saved) {
-      try {
-        renderMypage(JSON.parse(saved));
-      } catch (e) {}
+      try { renderMypage(JSON.parse(saved)); } catch (e) {}
     }
   });
 </script>
