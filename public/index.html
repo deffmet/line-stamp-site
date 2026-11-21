@@ -371,6 +371,15 @@ contactForm.addEventListener("submit", async (e) => {
     submitBtn.textContent = "送信する";
   }
 });
+
+  /* 画像・動画の長押し保存・ドラッグ・選択を禁止 */
+img, video {
+  -webkit-touch-callout: none; /* iOS Safariの長押し保存メニュー禁止 */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 </script>
 </body>
 </html>
