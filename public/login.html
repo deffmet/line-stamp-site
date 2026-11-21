@@ -63,7 +63,7 @@
 </div>
 
 <script>
-  const firebaseConfig = {
+  var firebaseConfig = {
     apiKey: "AIzaSyBQsOsgY6DFzSNb0-3Wv14pqk6KlgcOvfc",
     authDomain: "://firebaseapp.com",
     projectId: "line-stamp-service-35bfe",
@@ -73,8 +73,8 @@
   };
 
   firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
+  var auth = firebase.auth();
+  var db = firebase.firestore();
     var isRegisterMode = true;
 
   function showMessage(text, isError = true) {
