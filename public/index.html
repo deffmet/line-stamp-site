@@ -11,19 +11,30 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 .yt-banner-wrapper{max-width:1280px;margin:16px auto 0;padding:0 16px}
 .yt-banner{width:100%;aspect-ratio:16/3;max-height:260px;object-fit:cover;border-radius:12px;display:block;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
   /* トップ横長広告（728×90）の自動縮小リサイズ設定 */
+/* PC版：一切加工せずそのまま728×90を中央に表示 */
 .top-ad-outer {
   max-width: 1280px;
   margin: 16px auto 0;
   padding: 0 16px;
   text-align: center;
-  overflow: hidden; /* はみ出し・横スクロールを完全に防ぐ */
 }
 .top-ad-scaler {
   display: inline-block;
-  width: 728px;
-  height: 90px;
-  transform-origin: top left; /* 左上を基準に縮小 */
+  max-width: 100%;
 }
+
+/* スマホ版（画面幅768px以下）のときだけ縮小設定を適用 */
+@media (max-width: 768px) {
+  .top-ad-outer {
+    overflow: hidden;
+  }
+  .top-ad-scaler {
+    width: 728px;
+    height: 90px;
+    transform-origin: top left;
+  }
+}
+
 .channel-header{max-width:1280px;margin:16px auto 0;padding:0 16px 16px;border-bottom:1px solid #e5e5e5}
 .channel-title-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:6px}
 .channel-title{font-size:24px;font-weight:bold;margin:0}
@@ -215,21 +226,21 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 </div>
 
 <script>
-  // スマホ画面幅に合わせて728px広告を自動縮小リサイズ
-function resizeTopAd() {
+ function resizeTopAd() {
   const outer = document.querySelector(".top-ad-outer");
   const scaler = document.getElementById("topAdScaler");
   if (!outer || !scaler) return;
 
-  const availableWidth = outer.clientWidth - 32; // 左右の余白(16px×2)を引いた幅
-  if (availableWidth < 728) {
+  // スマホ幅（768px以下）のときだけ縮小計算を行う
+  if (window.innerWidth <= 768) {
+    const availableWidth = outer.clientWidth - 32;
     const scale = availableWidth / 728;
     scaler.style.transform = `scale(${scale})`;
-    // 縮小した分だけ下の余白（高さ）も自動で詰める
     outer.style.height = (90 * scale) + "px";
   } else {
-    scaler.style.transform = "none";
-    outer.style.height = "90px";
+    // PC幅では一切縮小・高さ制限をしない
+    scaler.style.transform = "";
+    outer.style.height = "";
   }
 }
 window.addEventListener("load", resizeTopAd);
