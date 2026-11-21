@@ -84,16 +84,24 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 .btn-submit{width:100%;background-color:#06c755;color:#fff;border:none;padding:12px;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer}
 .btn-submit:hover{background-color:#05b34c}
 .floating-video-box{position:fixed;z-index:9999;background:#fff;border:1px solid #e0e0e0;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.18);overflow:hidden}
-@media (min-width:769px){
-.floating-video-box{top:50%;right:16px;transform:translateY(-50%);width:260px}
-.video-box-header{cursor:grab;user-select:none}
-.video-box-header:active{cursor:grabbing}
-}
-@media (max-width:768px){
-.floating-video-box{top:25%;right:12px;width:170px;transition:top 0.35s ease}
-.floating-video-box.scrolled-top{top:12px}
-.video-box-header{cursor:default;user-select:none}
-}
+    @media (min-width: 769px) {
+      .floating-video-box {
+        top: 50%;
+        right: 16px;
+        transform: translateY(-50%);
+        width: 160px; /* 260px から 160px に変更して白い空欄をなくす */
+      }
+    }
+
+    @media (max-width: 768px) {
+      .floating-video-box {
+        top: 25%;
+        right: 12px;
+        width: 120px; /* 170px から 120px に変更してスマホでもスッキリ */
+        transition: top 0.35s ease;
+      }
+    }
+
 .video-box-header{display:flex;justify-content:space-between;align-items:center;background:#0f0f0f;color:#fff;font-size:11px;font-weight:bold;padding:5px 8px}
 .video-close-btn{background:none;border:none;color:#fff;font-size:14px;line-height:1;cursor:pointer;padding:0 4px}
 .video-iframe-wrap{position:relative;width:100%;padding-top:56.25%;background:#000}
@@ -217,16 +225,14 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 
 <div class="floating-video-box" id="floatingVideo">
   <div class="video-box-header" id="videoDragHeader">
-    <span>▶ 最新ショート動画</span>
+    <span>▶ 最新動画</span>
     <button class="video-close-btn" onclick="document.getElementById('floatingVideo').style.display='none'" title="閉じる">×</button>
   </div>
-  <!-- ① サイト内で自動垂れ流し再生（MP4） -->
-  <div style="background:#000; position:relative; aspect-ratio:9/16; max-height:230px; overflow:hidden;">
+  <div style="background:#000; position:relative; width:100%; aspect-ratio:9/16; overflow:hidden;">
     <video src="short1.mp4" autoplay loop muted playsinline controls style="width:100%; height:100%; object-fit:cover; display:block;"></video>
   </div>
-  <!-- ② YouTube本編・チャンネルへアクセスさせるボタン -->
-  <a href="https://youtube.com/shorts/W4kcHg2Q1D0" target="_blank" rel="noopener" style="display:block; background:#ff0000; color:#fff; text-align:center; font-size:11px; font-weight:bold; padding:7px 4px; text-decoration:none;">
-    YouTubeで本編・音声を見る ↗
+  <a href="https://youtube.com" target="_blank" rel="noopener" style="display:block; background:#ff0000; color:#fff; text-align:center; font-size:10px; font-weight:bold; padding:7px 4px; text-decoration:none;">
+    YouTubeで見る ↗
   </a>
 </div>
 </div>
