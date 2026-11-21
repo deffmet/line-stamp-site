@@ -59,6 +59,25 @@ export class OnlineCounter {
     }
 
     // 4. 管理者用：会員一覧の取得（GET /api/users）
+        // 4-2. レート制限チェック（POST /api/rate-limit）
+    if (request.method === "POST" && url.pathname === "/api/rate-limit") {
+      const { ip } = await request.json();
+      const now = Date.now();
+      const key = "rate_" + ip;
+      const record = (await this.state.storage.get(key)) || { count: 0, resetAt: now + 60000 };
+      if (now > record.resetAt) {
+        record.count = 1;
+        record.resetAt = now + 60000;
+      } else {
+        record.count += 1;
+      }
+      await this.state.storage.put(key, record);
+      if (record.count > 5) {
+        return new Response("Too Many Requests", { status: 429 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+    }
+
     if (request.method === "GET" && url.pathname === "/api/users") {
       if (url.searchParams.get("key") !== ADMIN_KEY) {
         return new Response("Unauthorized", { status: 401 });
@@ -107,13 +126,55 @@ export default {
     const id = env.ONLINE_COUNTER.idFromName("global-room");
     const stub = env.ONLINE_COUNTER.get(id);
 
-    // ★会員登録・ログイン中継API（Cloudflareサーバー経由でFirebaseと通信）
+       // ★会員登録・ログイン中継API（3重AIボット・攻撃防御付き）
     if (request.method === "POST" && url.pathname === "/api/auth") {
       try {
         const body = await request.json();
-        const { mode, email, password, username, role } = body;
+        const { mode, email, password, username, role, trap, cfToken } = body;
 
-                      var authHost = "identitytoolkit." + "googleapis.com";
+        // 防御1：ハニーポット（隠し罠に文字が入っていたらAIボットとして即遮断）
+        if (trap && String(trap).trim() !== "") {
+          return new Response(JSON.stringify({ ok: false, error: "不正なアクセスを検知しました。" }), {
+            status: 403,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        // 防御2：Cloudflare Turnstile（人間認証の検証）
+        const turnstileSecret = "0x4AAAAAAGMV94hg0Hke00tUwk62-bxjvEQ";
+        if (cfToken) {
+          var tsHost = "challenges." + "cloudflare.com";
+          const tsRes = await fetch("https://" + tsHost + "/turnstile/v0/siteverify", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: "secret=" + encodeURIComponent(turnstileSecret) + "&response=" + encodeURIComponent(cfToken),
+          });
+          const tsData = await tsRes.json();
+          if (!tsData.success) {
+            return new Response(JSON.stringify({ ok: false, error: "人間認証に失敗しました。ページを再読み込みしてお試しください。" }), {
+              status: 403,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+        }
+
+        // 防御3：レート制限（同じIPからの連続攻撃を1分間に5回までに制限）
+        const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
+        const rateRes = await stub.fetch(
+          new Request("https://dummy/api/rate-limit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ip: clientIp }),
+          })
+        );
+        if (!rateRes.ok) {
+          return new Response(JSON.stringify({ ok: false, error: "短時間に試行回数が多すぎます。1分ほど待ってから再度お試しください。" }), {
+            status: 429,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        var authHost = "identitytoolkit." + "googleapis.com";
         var fsHost = "firestore." + "googleapis.com";
 
         var endpoint = mode === "register"
@@ -174,7 +235,6 @@ export default {
           }
         }
 
-
         return new Response(
           JSON.stringify({ ok: true, user: { uid, email, username: finalUsername, role: finalRole } }),
           { headers: { "Content-Type": "application/json" } }
@@ -186,6 +246,7 @@ export default {
         });
       }
     }
+
 
     // WebSocketまたはデータAPIへのアクセス
     if (
