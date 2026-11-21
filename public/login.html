@@ -5,34 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>新規会員登録 / ログイン</title>
   <style>
-    body { font-family: sans-serif; background: #f4f6f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-    .card { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; box-sizing: border-box; }
-    h2 { margin-top: 0; text-align: center; color: #333; }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; font-size: 14px; margin-bottom: 5px; color: #555; }
-    input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
-    button { width: 100%; padding: 12px; background: #0096fa; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-    button:hover { background: #0077c8; }
-    .toggle-link { text-align: center; margin-top: 15px; font-size: 14px; color: #0096fa; cursor: pointer; text-decoration: underline; }
-    .message { margin-top: 15px; padding: 10px; border-radius: 6px; font-size: 14px; display: none; word-break: break-all; }
-    .error { background: #ffe6e6; color: #d00; }
-    .success { background: #e6ffed; color: #00802b; }
-    #mypage-area { display: none; text-align: center; }
-    .logout-btn { background: #666; }
+    body{font-family:sans-serif;background:#f4f6f9;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;padding:16px;box-sizing:border-box}
+    .card{background:#fff;padding:28px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);width:100%;max-width:400px}
+    h2{margin-top:0;text-align:center;color:#333}
+    .form-group{margin-bottom:14px}
+    label{display:block;font-size:13px;font-weight:bold;margin-bottom:5px;color:#555}
+    input,select{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;font-size:16px}
+    button{width:100%;padding:12px;background:#06c755;color:#fff;border:none;border-radius:6px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px}
+    .toggle-link{text-align:center;margin-top:15px;font-size:14px;color:#06c755;cursor:pointer;text-decoration:underline}
+    .message{margin-top:15px;padding:10px;border-radius:6px;font-size:13px;display:none;word-break:break-all}
+    .error{background:#ffe6e6;color:#d00}
+    .success{background:#e6ffed;color:#00802b}
+    #mypage-area{display:none;text-align:center}
+    .logout-btn{background:#666}
   </style>
 </head>
 <body>
-
 <div class="card">
-  <!-- ログイン・新規登録フォーム -->
   <div id="auth-area">
     <h2 id="form-title">新規会員登録</h2>
-    
     <div class="form-group" id="name-group">
       <label>ユーザー名（ニックネーム）</label>
       <input type="text" id="username" placeholder="例：クリエイター太郎">
     </div>
-
     <div class="form-group" id="role-group">
       <label>利用目的</label>
       <select id="user-role">
@@ -41,31 +36,25 @@
         <option value="both">両方利用したい</option>
       </select>
     </div>
-
     <div class="form-group">
       <label>メールアドレス</label>
       <input type="email" id="email" placeholder="example@mail.com">
     </div>
-
     <div class="form-group">
       <label>パスワード（6文字以上）</label>
       <input type="password" id="password" placeholder="******">
     </div>
-
-    <button id="submit-btn">無料で登録する</button>
+    <button type="button" id="submit-btn">無料で登録する</button>
     <div class="toggle-link" id="toggle-mode">すでにアカウントをお持ちの方はこちら（ログイン）</div>
   </div>
 
-  <!-- ログイン後のマイページ表示 -->
   <div id="mypage-area">
     <h2>マイページ</h2>
-    <p id="welcome-text" style="font-weight: bold; font-size: 18px;"></p>
-    <p id="role-text" style="font-size: 14px; color: #555;"></p>
-    <p style="font-size: 12px; color: #888;">※電話番号認証は今後こちらから追加できます</p>
-    <a href="index.html" style="display:block; margin: 20px 0; color: #0096fa; font-weight: bold;">トップページへ戻る</a>
-    <button class="logout-btn" id="logout-btn">ログアウト</button>
+    <p id="welcome-text" style="font-weight:bold;font-size:18px"></p>
+    <p id="role-text" style="font-size:14px;color:#555"></p>
+    <a href="index.html" style="display:block;margin:20px 0;color:#06c755;font-weight:bold">トップページへ戻る</a>
+    <button type="button" class="logout-btn" id="logout-btn">ログアウト</button>
   </div>
-
   <div id="msg-box" class="message"></div>
 </div>
 
@@ -86,87 +75,69 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
-
   let isRegisterMode = true;
 
-  const formTitle = document.getElementById('form-title');
-  const nameGroup = document.getElementById('name-group');
-  const roleGroup = document.getElementById('role-group');
-  const submitBtn = document.getElementById('submit-btn');
-  const toggleMode = document.getElementById('toggle-mode');
   const msgBox = document.getElementById('msg-box');
-
   function showMessage(text, isError = true) {
     msgBox.textContent = text;
     msgBox.className = 'message ' + (isError ? 'error' : 'success');
     msgBox.style.display = 'block';
   }
 
-  toggleMode.addEventListener('click', () => {
+  document.getElementById('toggle-mode').onclick = () => {
     isRegisterMode = !isRegisterMode;
     msgBox.style.display = 'none';
-    if (isRegisterMode) {
-      formTitle.textContent = '新規会員登録';
-      nameGroup.style.display = 'block';
-      roleGroup.style.display = 'block';
-      submitBtn.textContent = '無料で登録する';
-      toggleMode.textContent = 'すでにアカウントをお持ちの方はこちら（ログイン）';
-    } else {
-      formTitle.textContent = 'ログイン';
-      nameGroup.style.display = 'none';
-      roleGroup.style.display = 'none';
-      submitBtn.textContent = 'ログインする';
-      toggleMode.textContent = '初めての方はこちら（新規会員登録）';
-    }
-  });
+    document.getElementById('form-title').textContent = isRegisterMode ? '新規会員登録' : 'ログイン';
+    document.getElementById('name-group').style.display = isRegisterMode ? 'block' : 'none';
+    document.getElementById('role-group').style.display = isRegisterMode ? 'block' : 'none';
+    document.getElementById('submit-btn').textContent = isRegisterMode ? '無料で登録する' : 'ログインする';
+    document.getElementById('toggle-mode').textContent = isRegisterMode ? 'すでにアカウントをお持ちの方はこちら（ログイン）' : '初めての方はこちら（新規会員登録）';
+  };
 
-  submitBtn.addEventListener('click', async () => {
-    const email = document.getElementById('email').value;
+  document.getElementById('submit-btn').onclick = async () => {
+    const btn = document.getElementById('submit-btn');
+    const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
-    const username = document.getElementById('username').value;
+    const username = document.getElementById('username').value.trim();
     const role = document.getElementById('user-role').value;
 
-    if (!email || !password) {
-      showMessage('メールアドレスとパスワードを入力してください。');
-      return;
-    }
+    if (!email || !password) return showMessage('メールアドレスとパスワードを入力してください。');
+    btn.disabled = true;
+    btn.textContent = '処理中...';
 
     try {
       if (isRegisterMode) {
-        if (!username) {
-          showMessage('ユーザー名を入力してください。');
-          return;
-        }
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        await setDoc(doc(db, "users", user.uid), {
-          username: username,
-          role: role,
-          email: email,
-          phoneVerified: false,
-          createdAt: new Date()
-        });
+        if (!username) { btn.disabled = false; btn.textContent = '無料で登録する'; return showMessage('ユーザー名を入力してください。'); }
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, "users", cred.user.uid), { username, role, email, phoneVerified: false, createdAt: new Date() });
         showMessage('会員登録が完了しました！', false);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
         showMessage('ログインしました！', false);
       }
-    } catch (error) {
-      showMessage('エラー: ' + error.message);
+    } catch (e) {
+      showMessage('エラー: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = isRegisterMode ? '無料で登録する' : 'ログインする';
     }
-  });
+  };
 
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       document.getElementById('auth-area').style.display = 'none';
       document.getElementById('mypage-area').style.display = 'block';
-      const docSnap = await getDoc(doc(db, "users", user.uid));
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const roleLabel = data.role === 'client' ? '依頼者' : data.role === 'creator' ? 'クリエイター' : '依頼者・クリエイター両方';
-        document.getElementById('welcome-text').textContent = `ようこそ、${data.username} さん！`;
-        document.getElementById('role-text').textContent = `登録区分：${roleLabel}`;
-      } else {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) {
+          const d = snap.data();
+          const roleMap = { client: '依頼者', creator: 'クリエイター', both: '依頼者・クリエイター両方' };
+          document.getElementById('welcome-text').textContent = `ようこそ、${d.username} さん！`;
+          document.getElementById('role-text').textContent = `登録区分：${roleMap[d.role] || ''}`;
+        } else {
+          document.getElementById('welcome-text').textContent = `ログイン中: ${user.email}`;
+        }
+      } catch (e) {
         document.getElementById('welcome-text').textContent = `ログイン中: ${user.email}`;
       }
     } else {
@@ -175,10 +146,7 @@
     }
   });
 
-  document.getElementById('logout-btn').addEventListener('click', () => {
-    signOut(auth);
-  });
+  document.getElementById('logout-btn').onclick = () => signOut(auth);
 </script>
-
 </body>
 </html>
