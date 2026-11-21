@@ -226,15 +226,16 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 <div class="floating-video-box" id="floatingVideo">
   <div class="video-box-header" id="videoDragHeader">
     <span>▶ 最新動画</span>
-    <button class="video-close-btn" onclick="document.getElementById('floatingVideo').style.display='none'" title="閉じる">×</button>
+    <button class="video-close-btn" onclick="const v=document.getElementById('shortVideoPlayer'); v.pause(); v.muted=true; document.getElementById('floatingVideo').style.display='none';" title="閉じる">×</button>
   </div>
   <div style="background:#000; position:relative; width:100%; aspect-ratio:9/16; overflow:hidden;">
-    <video src="short1.mp4" autoplay loop muted playsinline controls style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+    <video id="shortVideoPlayer" src="short1.mp4" autoplay loop muted playsinline controls style="width:100%; height:100%; object-fit:cover; display:block;"></video>
   </div>
   <a href="https://youtube.com" target="_blank" rel="noopener" style="display:block; background:#ff0000; color:#fff; text-align:center; font-size:10px; font-weight:bold; padding:7px 4px; text-decoration:none;">
     YouTubeで見る ↗
   </a>
 </div>
+
 </div>
 
 <script>
