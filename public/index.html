@@ -114,6 +114,70 @@ img, video {
   user-select: none;
   -webkit-user-drag: none;
 }
+/* 応援・日銭支援セクション */
+.support-box {
+  background: linear-gradient(135deg, #fffdf5 0%, #fff8e1 100%);
+  border: 1px solid #ffe082;
+  border-radius: 16px;
+  padding: 24px 20px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+.support-title {
+  font-size: 19px;
+  font-weight: bold;
+  color: #d84315;
+  margin: 0 0 8px;
+}
+.support-desc {
+  font-size: 14px;
+  color: #555;
+  margin: 0 auto 18px;
+  max-width: 600px;
+  line-height: 1.6;
+}
+.support-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+.btn-support-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #ff6f00;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 14px;
+  padding: 12px 24px;
+  border-radius: 30px;
+  box-shadow: 0 3px 10px rgba(255, 111, 0, 0.25);
+  transition: transform 0.2s, background-color 0.2s;
+}
+.btn-support-main:hover {
+  background-color: #e65100;
+  transform: translateY(-2px);
+}
+.btn-support-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #ffffff;
+  color: #ff6f00;
+  border: 2px solid #ff6f00;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 14px;
+  padding: 10px 22px;
+  border-radius: 30px;
+  transition: transform 0.2s, background-color 0.2s;
+}
+.btn-support-sub:hover {
+  background-color: #fff3e0;
+  transform: translateY(-2px);
+}
 
 </style>
 </head>
@@ -183,6 +247,21 @@ img, video {
       <a href="#" class="btn btn-paid">100円で依頼する（準備中）</a>
     </div>
   </div>
+    <!-- ★応援・日銭支援セクション -->
+    <div class="support-box">
+      <h3 class="support-title">☕ 動画制作・サイト運営を応援する（100円〜）</h3>
+      <p class="support-desc">
+        「動画が面白かった！」「企画を続けてほしい！」という方からの温かい応援（日銭支援）を受け付けています。いただいた支援は、ボイス収録機材や新しいスタンプ紹介動画の制作費に大切に活用させていただきます！
+      </p>
+      <div class="support-buttons">
+        <a href="https://ofuse.me" target="_blank" rel="noopener" class="btn-support-main">
+          🎁 100円から応援メッセージを送る（OFUSE）
+        </a>
+        <a href="https://booth.pm" target="_blank" rel="noopener" class="btn-support-sub">
+          💖 匿名で支援する（BOOTH）
+        </a>
+      </div>
+    </div>
 
   <div class="ad-container">
     <div class="ad-label">PR / おすすめツール</div>
