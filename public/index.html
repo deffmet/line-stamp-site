@@ -217,12 +217,14 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 
 <div class="floating-video-box" id="floatingVideo">
   <div class="video-box-header" id="videoDragHeader">
-    <span>▶ 最新トーク動画</span>
-        <button class="video-close-btn" onclick="document.getElementById('floatingVideo').style.display='none'" title="閉じる">×</button>
+    <span>▶ 最新ショート動画</span>
+    <button class="video-close-btn" onclick="document.getElementById('floatingVideo').style.display='none'" title="閉じる">×</button>
   </div>
-  <div class="video-iframe-wrap">
-<iframe src="https://youtube.com/shorts/W4kcHg2Q1D0" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-  </div>
+  <a href="https://youtube.com/shorts/W4kcHg2Q1D0" target="_blank" rel="noopener" style="display:block; position:relative; aspect-ratio:9/16; max-height:240px; overflow:hidden; background:#000; text-decoration:none;">
+    <img src="https://youtube.com/shorts/W4kcHg2Q1D0" alt="最新ショート動画" style="width:100%; height:100%; object-fit:cover; display:block; opacity:0.9;">
+    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,0,0,0.92); color:#fff; padding:6px 12px; border-radius:20px; font-weight:bold; font-size:11px; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.4);">▶ Shortsで見る</div>
+  </a>
+</div>
 </div>
 
 <script>
