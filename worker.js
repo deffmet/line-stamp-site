@@ -92,6 +92,37 @@ export class OnlineCounter {
         headers: { "Content-Type": "application/json" },
       });
     }
+    // 4-3. 最新ショート動画のタップ数カウント・取得・リセット（/api/video-tap）
+    if (url.pathname === "/api/video-tap") {
+      if (request.method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        if (body.action === "reset") {
+          if (body.key !== ADMIN_KEY) {
+            return new Response("Unauthorized", { status: 401 });
+          }
+          const resetDate = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          await this.state.storage.put("video_taps", { count: 0, resetAt: resetDate });
+          return new Response(JSON.stringify({ ok: true, count: 0, resetAt: resetDate }), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        const current = (await this.state.storage.get("video_taps")) || { count: 0, resetAt: "初期状態" };
+        current.count = (current.count || 0) + 1;
+        await this.state.storage.put("video_taps", current);
+        return new Response(JSON.stringify({ ok: true, count: current.count }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (request.method === "GET") {
+        if (url.searchParams.get("key") !== ADMIN_KEY) {
+          return new Response("Unauthorized", { status: 401 });
+        }
+        const current = (await this.state.storage.get("video_taps")) || { count: 0, resetAt: "初期状態" };
+        return new Response(JSON.stringify(current), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // 5. リアルタイム閲覧人数（WebSocket）
     const webSocketPair = new WebSocketPair();
@@ -323,10 +354,12 @@ export default {
       url.pathname === "/api/contact" ||
       url.pathname === "/api/inquiries" ||
       url.pathname === "/api/save-user" ||
-      url.pathname === "/api/users"
+      url.pathname === "/api/users" ||
+      url.pathname === "/api/video-tap"
     ) {
       return stub.fetch(request);
     }
+
 
     // ★秘密の管理者ページ（お問い合わせ＋会員一覧も見られます）
     if (url.pathname === "/admin") {
