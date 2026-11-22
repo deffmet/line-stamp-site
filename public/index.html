@@ -636,6 +636,18 @@ document.addEventListener("dragstart", (e) => {
       }
     });
   })();
+
+
+
+      // 広告が在庫切れ等で空欄のままだった場合は枠ごと自動で隠す
+    setTimeout(function() {
+      var topScaler = document.getElementById("topAdScaler");
+      var topBox = document.getElementById("topAdBox");
+      if (topScaler && topBox && !topScaler.querySelector("img, iframe, ins, a")) {
+        topBox.style.display = "none";
+      }
+    }, 2500);
+
 </script>
 
 
