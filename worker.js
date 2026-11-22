@@ -195,6 +195,29 @@ export default {
         }
 
         // 防御3：レート制限（同じIPからの連続攻撃を1分間に5回までに制限）
+
+        // ★新規登録時のユーザー名重複チェック
+        if (mode === "register") {
+          const cleanName = String(username || "").trim();
+          if (!cleanName) {
+            return new Response(JSON.stringify({ ok: false, error: "ユーザー名を入力してください。" }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          const existingUsers = await (await stub.fetch(new Request(`https://dummy/api/users?key=${ADMIN_KEY}`))).json();
+          const isDuplicate = existingUsers.some(
+            (u) => u.username && u.username.toLowerCase() === cleanName.toLowerCase()
+          );
+          if (isDuplicate) {
+            return new Response(JSON.stringify({ ok: false, error: "そのユーザー名はすでに使用されています。別の名前を入力してください。" }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+        }
+
+        
         const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
         const rateRes = await stub.fetch(
           new Request("https://dummy/api/rate-limit", {
@@ -435,6 +458,28 @@ export default {
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
 
+    }
+    // ★会員専用ページ（URL: /my_page_会員の名前）
+    if (url.pathname.startsWith("/my_page_")) {
+      const targetName = decodeURIComponent(url.pathname.replace("/my_page_", "")).trim();
+      const users = await (await stub.fetch(new Request(`https://dummy/api/users?key=${ADMIN_KEY}`))).json();
+      const member = users.find((u) => u.username === targetName);
+
+      if (!member) {
+        return new Response(
+          `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ページが見つかりません</title></head><body style="font-family:sans-serif;text-align:center;padding:60px 20px;background:#f9f9f9;"><h2>404 - 会員ページが見つかりません</h2><p>指定されたユーザー「${targetName.replace(/</g, "&lt;")}」は存在しないか、まだ登録されていません。</p><a href="/" style="color:#06c755;font-weight:bold;">トップページへ戻る</a></body></html>`,
+          { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } }
+        );
+      }
+
+      const roleMap = { client: "依頼者", creator: "クリエイター", both: "依頼者・クリエイター両方" };
+      const safeName = member.username.replace(/</g, "&lt;");
+      const safeRole = roleMap[member.role] || "会員";
+
+      return new Response(
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeName} さんの会員ページ | LINEスタンプ×ボイス動画</title><style>body{font-family:sans-serif;background:#f4f6f9;margin:0;padding:20px;color:#0f0f0f}.wrap{max-width:720px;margin:0 auto}.card{background:#fff;border-radius:16px;padding:28px;box-shadow:0 4px 14px rgba(0,0,0,0.08);margin-bottom:20px}.badge{display:inline-block;background:#e6ffed;color:#00802b;font-size:12px;font-weight:bold;padding:4px 12px;border-radius:20px;margin-bottom:8px}.title{font-size:24px;font-weight:bold;margin:0 0 8px}.url-box{background:#f0f2f5;padding:10px 14px;border-radius:8px;font-size:12px;color:#555;word-break:break-all;margin-top:12px}.gallery-empty{border:2px dashed #ddd;border-radius:12px;padding:40px 20px;text-align:center;color:#888;font-size:14px}.nav-links{display:flex;gap:12px;justify-content:center;margin-top:20px}.btn{display:inline-block;padding:10px 20px;border-radius:20px;text-decoration:none;font-weight:bold;font-size:14px;background:#06c755;color:#fff}.btn-sub{background:#0f0f0f}</style></head><body><div class="wrap"><div class="card"><span class="badge">${safeRole}</span><h1 class="title">👤 ${safeName} さんのマイページ</h1><p style="font-size:14px;color:#666;margin:0;">登録日：${member.date || "登録済み"}</p><div class="url-box">専用URL：${url.origin}/my_page_${encodeURIComponent(member.username)}</div></div><div class="card"><h2 style="font-size:18px;margin-top:0;">🎨 投稿スタンプイラスト（240×240px）</h2><div class="gallery-empty">投稿イラスト機能は現在準備中です。<br>今後のアップデートでこちらに240×240pxのスタンプ作品が並びます！</div></div><div class="nav-links"><a href="/" class="btn">トップページへ</a><a href="/login.html" class="btn btn-sub">会員設定・区分変更</a></div></div></body></html>`,
+        { headers: { "Content-Type": "text/html; charset=utf-8" } }
+      );
     }
 
     return env.ASSETS.fetch(request);
