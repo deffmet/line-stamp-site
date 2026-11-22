@@ -405,10 +405,36 @@ export default {
               )
               .join("");
 
+      const videoBoxHtml = `
+        <div style="background:#fff0f0;border:2px solid #ffcccc;border-radius:12px;padding:16px;margin-bottom:24px;">
+          <h3 style="margin:0 0 8px;color:#d93025;">▶ 最新ショート動画のタップ回数</h3>
+          <div style="font-size:28px;font-weight:bold;color:#0f0f0f;margin-bottom:4px;"><span id="video-tap-count">${videoTapData.count || 0}</span> タップ</div>
+          <div style="font-size:12px;color:#666;margin-bottom:12px;">最終リセット日時：<span id="video-tap-reset">${videoTapData.resetAt || "初期状態"}</span></div>
+          <button type="button" onclick="resetVideoTaps()" style="background:#d93025;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:13px;">🔄 タップ回数を0にリセットする</button>
+        </div>
+        <script>
+          async function resetVideoTaps() {
+            if (!confirm("最新ショート動画のタップ回数を0にリセットしますか？")) return;
+            const res = await fetch("/api/video-tap", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "reset", key: "${ADMIN_KEY}" })
+            });
+            if (res.ok) {
+              const d = await res.json();
+              document.getElementById("video-tap-count").textContent = d.count;
+              document.getElementById("video-tap-reset").textContent = d.resetAt;
+              alert("タップ回数を0にリセットしました！");
+            }
+          }
+        </script>
+      `;
+
       return new Response(
-        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;"><h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;">${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
+
     }
 
     return env.ASSETS.fetch(request);
