@@ -164,7 +164,7 @@
     }
   }
 
-  async function handleUpdateRole() {
+    async function handleUpdateRole() {
     var saved = localStorage.getItem('site_user');
     if (!saved) return showMessage('ログインが必要です。', true);
 
@@ -184,7 +184,8 @@
           email: userData.email,
           username: userData.username,
           role: newRole,
-          idToken: userData.idToken
+          idToken: userData.idToken || '',
+          refreshToken: userData.refreshToken || ''
         })
       });
       var data = await res.json();
@@ -194,6 +195,7 @@
       }
 
       userData.role = newRole;
+      if (data.idToken) userData.idToken = data.idToken;
       localStorage.setItem('site_user', JSON.stringify(userData));
       renderMypage(userData);
       showMessage('利用区分を変更しました！', false);
