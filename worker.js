@@ -59,7 +59,17 @@ export class OnlineCounter {
     }
 
     // 4. 管理者用：会員一覧の取得（GET /api/users）
-        // 4-2. レート制限チェック（POST /api/rate-limit）
+    if (request.method === "GET" && url.pathname === "/api/users") {
+      if (url.searchParams.get("key") !== ADMIN_KEY) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+      const users = (await this.state.storage.get("users")) || [];
+      return new Response(JSON.stringify(users), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // 4-2. レート制限チェック（POST /api/rate-limit）
     if (request.method === "POST" && url.pathname === "/api/rate-limit") {
       const { ip } = await request.json();
       const now = Date.now();
@@ -75,15 +85,7 @@ export class OnlineCounter {
       if (record.count > 5) {
         return new Response("Too Many Requests", { status: 429 });
       }
-      return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/users") {
-      if (url.searchParams.get("key") !== ADMIN_KEY) {
-        return new Response("Unauthorized", { status: 401 });
-      }
-      const users = (await this.state.storage.get("users")) || [];
-      return new Response(JSON.stringify(users), {
+      return new Response(JSON.stringify({ ok: true }), {
         headers: { "Content-Type": "application/json" },
       });
     }
