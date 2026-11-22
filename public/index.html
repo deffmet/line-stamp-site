@@ -13,6 +13,7 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
   /* トップ横長広告（728×90）の自動縮小リサイズ設定 */
 /* PC版：一切加工せずそのまま728×90を中央に表示 */
 .top-ad-outer {
+  display: none;
   max-width: 1280px;
   margin: 16px auto 0;
   padding: 0 16px;
@@ -26,6 +27,7 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 /* スマホ版（画面幅768px以下）のときだけ縮小設定を適用 */
 @media (max-width: 768px) {
   .top-ad-outer {
+    display: block;
     overflow: hidden;
   }
   .top-ad-scaler {
@@ -34,6 +36,7 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
     transform-origin: top left;
   }
 }
+
 
 .channel-header{max-width:1280px;margin:16px auto 0;padding:0 16px 16px;border-bottom:1px solid #e5e5e5}
 .channel-title-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:6px}
@@ -636,24 +639,6 @@ document.addEventListener("dragstart", (e) => {
       }
     });
   })();
-
-
-
-      // 広告が在庫切れ等で空欄のままだった場合は枠ごと自動で隠す
-    // 広告の中身（実際のバナー画像や表示高さ）がない場合は枠ごと隠す
-    // PCなどで広告タグが完全に空（iframeもimgもinsも無い）のときだけ隠す
-    setTimeout(function() {
-      var topScaler = document.getElementById("topAdScaler");
-      var topBox = document.getElementById("topAdBox");
-      if (topScaler && topBox) {
-        var hasAdContent = topScaler.querySelector("img, iframe, ins, object, embed");
-        if (!hasAdContent) {
-          topBox.style.display = "none";
-        }
-      }
-    }, 2500);
-
-
 
 </script>
 
