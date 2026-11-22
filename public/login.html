@@ -26,7 +26,7 @@
 </head>
 <body>
 <div class="card">
-  <div id="auth-area">
+  <div id="auth-area" style="display:none;">
     <h2 id="form-title">新規会員登録</h2>
     <div class="hp-trap" aria-hidden="true">
       <input type="text" id="website_url" tabindex="-1" autocomplete="off">
@@ -215,12 +215,17 @@
     if (window.turnstile) window.turnstile.reset();
   }
 
-  window.addEventListener('load', function() {
+  (function() {
     var saved = localStorage.getItem('site_user');
     if (saved) {
-      try { renderMypage(JSON.parse(saved)); } catch (e) {}
+      try {
+        renderMypage(JSON.parse(saved));
+        return;
+      } catch (e) {}
     }
-  });
+    document.getElementById('auth-area').style.display = 'block';
+  })();
+
 </script>
 </body>
 </html>
