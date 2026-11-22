@@ -72,6 +72,21 @@ export class OnlineCounter {
       });
     }
 
+        // 4-1. 管理者用：会員データの削除（POST /api/delete-user）
+    if (request.method === "POST" && url.pathname === "/api/delete-user") {
+      const body = await request.json().catch(() => ({}));
+      if (body.key !== ADMIN_KEY) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+      const users = (await this.state.storage.get("users")) || [];
+      const updated = users.filter((u) => u.uid !== body.uid);
+      await this.state.storage.put("users", updated);
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+
     // 4-2. レート制限チェック（POST /api/rate-limit）
     if (request.method === "POST" && url.pathname === "/api/rate-limit") {
       const { ip } = await request.json();
@@ -378,10 +393,12 @@ export default {
       url.pathname === "/api/inquiries" ||
       url.pathname === "/api/save-user" ||
       url.pathname === "/api/users" ||
+      url.pathname === "/api/delete-user" ||
       url.pathname === "/api/video-tap"
     ) {
       return stub.fetch(request);
     }
+
 
 
     // ★秘密の管理者ページ（お問い合わせ＋会員一覧も見られます）
@@ -405,13 +422,17 @@ export default {
           : users
               .map(
                 (u) => `
-            <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:8px;">
-              <div style="font-size:12px;color:#888;">登録日時：${u.date}</div>
-              <div style="font-weight:bold;font-size:15px;">👤 ${u.username.replace(/</g, "&lt;")}（${roleMap[u.role] || "未設定"}）</div>
-              <div style="font-size:13px;color:#555;">${u.email.replace(/</g, "&lt;")}</div>
+            <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <div>
+                <div style="font-size:12px;color:#888;">登録日時：${u.date}</div>
+                <div style="font-weight:bold;font-size:15px;">👤 ${u.username.replace(/</g, "&lt;")}（${roleMap[u.role] || "未設定"}）</div>
+                <div style="font-size:13px;color:#555;">${u.email.replace(/</g, "&lt;")}</div>
+              </div>
+              <button type="button" onclick="deleteUser('${u.uid}', '${u.username.replace(/'/g, "\\'")}')" style="background:#d93025;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;white-space:nowrap;">🗑️ 削除</button>
             </div>`
               )
               .join("");
+
 
       const itemsHtml =
         list.length === 0
@@ -435,7 +456,7 @@ export default {
           <div style="font-size:12px;color:#666;margin-bottom:12px;">最終リセット日時：<span id="video-tap-reset">${videoTapData.resetAt || "初期状態"}</span></div>
           <button type="button" onclick="resetVideoTaps()" style="background:#d93025;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:13px;">🔄 タップ回数を0にリセットする</button>
         </div>
-        <script>
+             <script>
           async function resetVideoTaps() {
             if (!confirm("最新ショート動画のタップ回数を0にリセットしますか？")) return;
             const res = await fetch("/api/video-tap", {
@@ -448,6 +469,19 @@ export default {
               document.getElementById("video-tap-count").textContent = d.count;
               document.getElementById("video-tap-reset").textContent = d.resetAt;
               alert("タップ回数を0にリセットしました！");
+            }
+          }
+
+          async function deleteUser(uid, name) {
+            if (!confirm("会員「" + name + "」を一覧から削除しますか？（同じ名前で再登録できるようになります）")) return;
+            const res = await fetch("/api/delete-user", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ key: "${ADMIN_KEY}", uid: uid })
+            });
+            if (res.ok) {
+              alert("削除しました！");
+              location.reload();
             }
           }
         </script>
