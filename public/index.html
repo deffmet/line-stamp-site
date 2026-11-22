@@ -44,6 +44,23 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 .auth-nav-btn{display:inline-flex;align-items:center;gap:6px;background-color:#06c755;color:#fff;text-decoration:none;font-weight:bold;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 2px 6px rgba(6,199,85,0.25);margin-left:auto}
 .auth-nav-btn:hover{background-color:#05b34c}
 .auth-nav-btn.logged-in{background-color:#0f0f0f}
+/* 三本線メニューボタンと右スライド窓 */
+.header-right-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
+.hamburger-btn{background:#fff;border:1px solid #ddd;border-radius:8px;width:38px;height:38px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;cursor:pointer;padding:0;box-shadow:0 2px 5px rgba(0,0,0,0.06)}
+.hamburger-btn span{display:block;width:20px;height:2px;background:#0f0f0f;border-radius:2px}
+.drawer-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:10001}
+.drawer-overlay.active{display:block}
+.right-drawer{position:fixed;top:0;right:-280px;width:260px;max-width:80vw;height:100%;background:#fff;z-index:10002;box-shadow:-4px 0 16px rgba(0,0,0,0.15);transition:right 0.25s ease;display:flex;flex-direction:column;padding:20px;box-sizing:border-box}
+.right-drawer.active{right:0}
+.drawer-header{display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:1px solid #eee;margin-bottom:12px}
+.drawer-title{font-weight:bold;font-size:16px;color:#0f0f0f}
+.drawer-close{background:#f0f0f0;border:none;width:30px;height:30px;border-radius:50%;font-size:18px;cursor:pointer;color:#333}
+.drawer-menu{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.drawer-item{display:block;width:100%;text-align:left;background:none;border:none;padding:12px 10px;font-size:15px;font-weight:bold;color:#0f0f0f;text-decoration:none;border-radius:8px;cursor:pointer;box-sizing:border-box}
+.drawer-item:hover{background:#f5f5f5}
+.drawer-item.disabled{color:#888;cursor:default}
+.drawer-item.logout{color:#d93025}
+.reply-notice{font-size:11px;color:#d93025;margin-bottom:12px;line-height:1.4;text-align:left}
 
 .channel-desc{font-size:14px;color:#606060;margin:0}
 .container{max-width:1280px;margin:24px auto;padding:0 16px}
@@ -199,11 +216,41 @@ img, video {
 
 <div class="channel-header">
   <div class="channel-title-row">
-    <h1 class="channel-title">LINEスタンプ×ボイス動画 企画サイト</h1>
-    <div class="live-badge">
-      <span class="live-dot"></span>
-      <span>現在 <strong id="online-count">1</strong> 人が閲覧中</span>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
+      <h1 class="channel-title">LINEスタンプ×ボイス動画 企画サイト</h1>
+      <div class="live-badge">
+        <span class="live-dot"></span>
+        <span>現在 <strong id="online-count">1</strong> 人が閲覧中</span>
+      </div>
     </div>
+    <div class="header-right-actions">
+      <a href="login.html" id="headerAuthBtn" class="auth-nav-btn" style="margin-left:0;">👤 無料会員登録 / ログイン</a>
+      <button type="button" class="hamburger-btn" id="openDrawerBtn" title="メニューを開く" aria-label="メニュー">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </div>
+  <p class="channel-desc">クリエイター様のLINEスタンプを使ったトーク動画を制作・公開中！無償掲載＆100円有償出演の依頼を受付しています。</p>
+</div>
+
+<!-- ★右側から開く5カテゴリーメニュー窓 -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<nav class="right-drawer" id="rightDrawer">
+  <div class="drawer-header">
+    <span class="drawer-title">メニュー</span>
+    <button type="button" class="drawer-close" id="closeDrawerBtn">×</button>
+  </div>
+  <ul class="drawer-menu">
+    <li><button type="button" class="drawer-item disabled" onclick="alert('スタンプイラスト機能は現在準備中です。')">🎨 スタンプイラスト（準備中）</button></li>
+    <li><button type="button" class="drawer-item disabled" onclick="alert('依頼機能は現在準備中です。')">📝 依頼する（準備中）</button></li>
+    <li><button type="button" class="drawer-item disabled" onclick="alert('掲載主様ダッシュボードは現在準備中です。')">📊 掲載主様ダッシュボード（準備中）</button></li>
+    <li id="drawerLogoutItem" style="display:none;"><button type="button" class="drawer-item logout" id="drawerLogoutBtn">🚪 ログアウト</button></li>
+    <li><button type="button" class="drawer-item" id="drawerContactBtn">✉️ 問い合わせ</button></li>
+  </ul>
+</nav>
+
         <a href="login.html" id="headerAuthBtn" class="auth-nav-btn">👤 無料会員登録 / ログイン</a>
   </div>
   <p class="channel-desc">クリエイター様のLINEスタンプを使ったトーク動画を制作・公開中！無償掲載＆100円有償出演の依頼を受付しています。</p>
@@ -312,6 +359,7 @@ img, video {
       </div>
       <div class="save-notice">※入力内容はブラウザに自動保存されます</div>
       <button type="submit" class="btn-submit">送信する</button>
+            <div class="reply-notice">※お問い合わせ内容によっては、必ずしも返信できるとは限りませんのであらかじめご了承ください。</div>
     </form>
   </div>
 </div>
@@ -493,10 +541,73 @@ document.addEventListener("dragstart", (e) => {
 </script>
 <script>
   (function() {
-    var videoTapped = false;
-    function sendVideoTap() {
-      if (videoTapped) return;
-      videoTapped = true;
+    // 1. ログイン状態の反映と右窓メニューの「ログアウト」表示制御
+    var savedUser = localStorage.getItem("site_user");
+    var headerBtn = document.getElementById("headerAuthBtn");
+    var drawerLogoutItem = document.getElementById("drawerLogoutItem");
+
+    if (savedUser) {
+      try {
+        var user = JSON.parse(savedUser);
+        if (headerBtn) {
+          headerBtn.textContent = "👤 " + (user.username || "マイページ") + " さん";
+          headerBtn.classList.add("logged-in");
+        }
+        if (drawerLogoutItem) {
+          drawerLogoutItem.style.display = "block";
+        }
+      } catch (e) {}
+    }
+
+    // 2. 右上三本線メニューの開閉・ログアウト・問い合わせ連動
+    var openDrawerBtn = document.getElementById("openDrawerBtn");
+    var closeDrawerBtn = document.getElementById("closeDrawerBtn");
+    var drawerOverlay = document.getElementById("drawerOverlay");
+    var rightDrawer = document.getElementById("rightDrawer");
+    var drawerLogoutBtn = document.getElementById("drawerLogoutBtn");
+    var drawerContactBtn = document.getElementById("drawerContactBtn");
+
+    function closeDrawer() {
+      if (rightDrawer) rightDrawer.classList.remove("active");
+      if (drawerOverlay) drawerOverlay.classList.remove("active");
+    }
+
+    if (openDrawerBtn) {
+      openDrawerBtn.addEventListener("click", function() {
+        rightDrawer.classList.add("active");
+        drawerOverlay.classList.add("active");
+      });
+    }
+    if (closeDrawerBtn) closeDrawerBtn.addEventListener("click", closeDrawer);
+    if (drawerOverlay) drawerOverlay.addEventListener("click", closeDrawer);
+
+    if (drawerLogoutBtn) {
+      drawerLogoutBtn.addEventListener("click", function() {
+        localStorage.removeItem("site_user");
+        closeDrawer();
+        alert("ログアウトしました。");
+        window.location.href = "index.html";
+      });
+    }
+
+    if (drawerContactBtn) {
+      drawerContactBtn.addEventListener("click", function() {
+        closeDrawer();
+        var modal = document.getElementById("contactModalOverlay");
+        if (modal) modal.classList.add("active");
+      });
+    }
+
+    // 3. 同じ人からのYouTube・動画タップを「1日1回まで」に制限してカウント
+    function sendVideoTapOncePerDay() {
+      var now = new Date();
+      var todayStr = now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate();
+      var lastTapDate = localStorage.getItem("video_tapped_date");
+
+      // 今日すでにタップ済みならカウント送信しない
+      if (lastTapDate === todayStr) return;
+
+      localStorage.setItem("video_tapped_date", todayStr);
       fetch("/api/video-tap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -504,21 +615,21 @@ document.addEventListener("dragstart", (e) => {
         keepalive: true
       }).catch(function() {});
     }
+
     window.addEventListener("load", function() {
       var box = document.getElementById("floatingVideo");
       if (!box) return;
       var videoEl = document.getElementById("shortVideoPlayer");
       var ytLink = box.querySelector("a");
       if (videoEl) {
-        videoEl.addEventListener("pointerdown", sendVideoTap);
+        videoEl.addEventListener("pointerdown", sendVideoTapOncePerDay);
       }
       if (ytLink) {
-        ytLink.addEventListener("click", sendVideoTap);
+        ytLink.addEventListener("click", sendVideoTapOncePerDay);
       }
     });
   })();
 </script>
-
 
 
   
