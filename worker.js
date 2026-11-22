@@ -372,6 +372,9 @@ export default {
       const list = await (await stub.fetch(new Request(`https://dummy/api/inquiries?key=${ADMIN_KEY}`))).json();
       const users = await (await stub.fetch(new Request(`https://dummy/api/users?key=${ADMIN_KEY}`))).json();
 
+      const videoTapData = await (await stub.fetch(new Request(`https://dummy/api/video-tap?key=${ADMIN_KEY}`))).json();
+
+      
       const roleMap = { client: "依頼者", creator: "クリエイター", both: "両方" };
       const usersHtml =
         users.length === 0
