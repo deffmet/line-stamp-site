@@ -641,18 +641,18 @@ document.addEventListener("dragstart", (e) => {
 
       // 広告が在庫切れ等で空欄のままだった場合は枠ごと自動で隠す
     // 広告の中身（実際のバナー画像や表示高さ）がない場合は枠ごと隠す
+    // PCなどで広告タグが完全に空（iframeもimgもinsも無い）のときだけ隠す
     setTimeout(function() {
       var topScaler = document.getElementById("topAdScaler");
       var topBox = document.getElementById("topAdBox");
       if (topScaler && topBox) {
-        var hasBannerImg = topScaler.querySelector("img");
-        var bannerDiv = topScaler.querySelector("[id^='admax-banner']");
-        var isEmpty = !hasBannerImg && (!bannerDiv || bannerDiv.innerHTML.trim() === "");
-        if (isEmpty) {
+        var hasAdContent = topScaler.querySelector("img, iframe, ins, object, embed");
+        if (!hasAdContent) {
           topBox.style.display = "none";
         }
       }
-    }, 2000);
+    }, 2500);
+
 
 
 </script>
