@@ -491,6 +491,33 @@ document.addEventListener("dragstart", (e) => {
     }
   });
 </script>
+<script>
+  (function() {
+    var videoTapped = false;
+    function sendVideoTap() {
+      if (videoTapped) return;
+      videoTapped = true;
+      fetch("/api/video-tap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "tap" }),
+        keepalive: true
+      }).catch(function() {});
+    }
+    window.addEventListener("load", function() {
+      var box = document.getElementById("floatingVideo");
+      if (!box) return;
+      var videoEl = document.getElementById("shortVideoPlayer");
+      var ytLink = box.querySelector("a");
+      if (videoEl) {
+        videoEl.addEventListener("pointerdown", sendVideoTap);
+      }
+      if (ytLink) {
+        ytLink.addEventListener("click", sendVideoTap);
+      }
+    });
+  })();
+</script>
 
 
 
