@@ -37,6 +37,12 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
   }
 }
 
+/* TOPバナー下のイラスト検索バー（240x240検索準備中） */
+.top-search-wrapper{max-width:1280px;margin:16px auto 0;padding:0 16px}
+.top-search-form{display:flex;gap:8px;max-width:600px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:30px;padding:6px 8px 6px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+.top-search-input{flex:1;border:none;outline:none;font-size:14px;background:transparent;color:#0f0f0f}
+.top-search-btn{background:#06c755;color:#fff;border:none;border-radius:20px;padding:8px 18px;font-size:13px;font-weight:bold;cursor:pointer;white-space:nowrap}
+.top-search-btn:hover{background:#05b34c}
 
 .channel-header{max-width:1280px;margin:16px auto 0;padding:0 16px 16px;border-bottom:1px solid #e5e5e5}
 .channel-title-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:6px}
@@ -224,6 +230,13 @@ img, video {
   </div>
 </div>
 
+<!-- ★TOPバナーとタイトル間の検索欄（240x240イラスト検索・処理未実施） -->
+<div class="top-search-wrapper">
+  <form class="top-search-form" onsubmit="event.preventDefault(); alert('スタンプイラスト（240×240px）の検索機能は現在準備中です！');">
+    <input type="text" class="top-search-input" id="stampSearchInput" placeholder="会員投稿イラスト（240×240px）を検索（準備中）...">
+    <button type="submit" class="top-search-btn">🔍 検索</button>
+  </form>
+</div>
 
 <div class="channel-header">
   <div class="channel-title-row">
@@ -260,6 +273,8 @@ img, video {
     <li><button type="button" class="drawer-item disabled" onclick="alert('掲載主様ダッシュボードは現在準備中です。')">📊 掲載主様ダッシュボード（準備中）</button></li>
     <li id="drawerLogoutItem" style="display:none;"><button type="button" class="drawer-item logout" id="drawerLogoutBtn">🚪 ログアウト</button></li>
     <li><button type="button" class="drawer-item" id="drawerContactBtn">✉️ 問い合わせ</button></li>
+    <li id="drawerMyPageItem" style="display:none;"><a href="#" class="drawer-item" id="drawerMyPageLink" style="color:#06c755;">🏠 会員専用ページ</a></li>
+
   </ul>
 </nav>
 
@@ -577,6 +592,13 @@ document.addEventListener("dragstart", (e) => {
         if (drawerLogoutItem) {
           drawerLogoutItem.style.display = "block";
         }
+                var drawerMyPageItem = document.getElementById("drawerMyPageItem");
+        var drawerMyPageLink = document.getElementById("drawerMyPageLink");
+        if (drawerMyPageItem && drawerMyPageLink && user.username) {
+          drawerMyPageLink.href = "/my_page_" + encodeURIComponent(user.username);
+          drawerMyPageItem.style.display = "block";
+        }
+
       } catch (e) {}
     }
 
