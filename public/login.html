@@ -9,7 +9,7 @@
     body{font-family:sans-serif;background:#f4f6f9;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;padding:16px;box-sizing:border-box}
     .card{background:#fff;padding:28px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);width:100%;max-width:400px}
     h2{margin-top:0;text-align:center;color:#333}
-    .form-group{margin-bottom:14px}
+    .form-group{margin-bottom:14px;text-align:left}
     label{display:block;font-size:13px;font-weight:bold;margin-bottom:5px;color:#555}
     input,select{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;font-size:16px}
     button{width:100%;padding:12px;background:#06c755;color:#fff;border:none;border-radius:6px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px}
@@ -18,6 +18,8 @@
     .error{background:#ffe6e6;color:#d00}
     .success{background:#e6ffed;color:#00802b}
     #mypage-area{display:none;text-align:center}
+    .role-edit-box{background:#f8f9fa;border:1px solid #e5e5e5;border-radius:8px;padding:14px;margin:16px 0;text-align:left}
+    .btn-save-role{background:#0f0f0f;font-size:14px;padding:10px;margin-top:8px}
     .logout-btn{background:#666}
     .hp-trap{position:absolute;left:-9999px;opacity:0;height:0;width:0}
   </style>
@@ -58,8 +60,20 @@
 
   <div id="mypage-area">
     <h2>マイページ</h2>
-    <p id="welcome-text" style="font-weight:bold;font-size:18px"></p>
-    <p id="role-text" style="font-size:14px;color:#555"></p>
+    <p id="welcome-text" style="font-weight:bold;font-size:18px;margin-bottom:6px"></p>
+    <p id="role-text" style="font-size:14px;color:#06c755;font-weight:bold;margin-top:0"></p>
+
+    <!-- ★ログイン者限定：利用区分の変更フォーム -->
+    <div class="role-edit-box">
+      <label for="edit-user-role">利用区分の変更</label>
+      <select id="edit-user-role">
+        <option value="client">作品を依頼したい（依頼者）</option>
+        <option value="creator">依頼を受けて制作したい（クリエイター）</option>
+        <option value="both">両方利用したい</option>
+      </select>
+      <button type="button" id="save-role-btn" class="btn-save-role" onclick="handleUpdateRole()">利用区分を変更する</button>
+    </div>
+
     <a href="index.html" style="display:block;margin:20px 0;color:#06c755;font-weight:bold">トップページへ戻る</a>
     <button type="button" class="logout-btn" onclick="handleLogout()">ログアウト</button>
   </div>
@@ -91,7 +105,10 @@
     document.getElementById('mypage-area').style.display = 'block';
     var roleMap = { client: '依頼者', creator: 'クリエイター', both: '依頼者・クリエイター両方' };
     document.getElementById('welcome-text').textContent = 'ようこそ、' + (userData.username || userData.email) + ' さん！';
-    document.getElementById('role-text').textContent = userData.role ? '登録区分：' + (roleMap[userData.role] || '') : '';
+    document.getElementById('role-text').textContent = userData.role ? '現在の登録区分：' + (roleMap[userData.role] || '') : '';
+    if (userData.role) {
+      document.getElementById('edit-user-role').value = userData.role;
+    }
   }
 
   async function handleAuth() {
@@ -144,6 +161,47 @@
     } finally {
       btn.disabled = false;
       btn.textContent = isRegisterMode ? '無料で登録する' : 'ログインする';
+    }
+  }
+
+  async function handleUpdateRole() {
+    var saved = localStorage.getItem('site_user');
+    if (!saved) return showMessage('ログインが必要です。', true);
+
+    var userData = JSON.parse(saved);
+    var newRole = document.getElementById('edit-user-role').value;
+    var btn = document.getElementById('save-role-btn');
+
+    btn.disabled = true;
+    btn.textContent = '更新中...';
+
+    try {
+      var res = await fetch('/api/update-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: userData.uid,
+          email: userData.email,
+          username: userData.username,
+          role: newRole,
+          idToken: userData.idToken
+        })
+      });
+      var data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || '変更に失敗しました');
+      }
+
+      userData.role = newRole;
+      localStorage.setItem('site_user', JSON.stringify(userData));
+      renderMypage(userData);
+      showMessage('利用区分を変更しました！', false);
+    } catch (e) {
+      showMessage('エラー: ' + e.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '利用区分を変更する';
     }
   }
 
