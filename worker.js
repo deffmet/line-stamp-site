@@ -139,59 +139,32 @@ export class OnlineCounter {
       }
     }
        // 4-4. 会員と紐づくショート動画掲載データ（/api/short-ads）
+       // 4-4. 会員と紐づくショート動画掲載データ（最大1000件・拒否理由・完全削除対応）
     if (url.pathname === "/api/short-ads") {
       if (request.method === "POST") {
         const body = await request.json().catch(() => ({}));
-        const list = (await this.state.storage.get("short_ads")) || [];
+        let list = (await this.state.storage.get("short_ads")) || [];
 
-        // 管理者によるステータス更新（承諾 / 不許可）またはクリック数更新
         if (body.action === "set_status") {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
           const target = list.find((item) => String(item.id) === String(body.id));
           if (target) {
             target.status = body.status === "approved" ? "approved" : "rejected";
+            target.rejectReason = target.status === "rejected" ? String(body.reason || "").slice(0, 200) : "";
             target.reviewedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
             await this.state.storage.put("short_ads", list);
           }
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
 
-        if (body.action === "update_clicks") {
+        if (body.action === "delete") {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
-          const target = list.find((item) => String(item.id) === String(body.id));
-          if (target) {
-            target.clicks = Math.max(0, Number(body.clicks || 0));
-            await this.state.storage.put("short_ads", list);
-          }
+          list = list.filter((item) => String(item.id) !== String(body.id));
+          await this.state.storage.put("short_ads", list);
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
 
-        // 会員による新規申し込み（サーバー側でもYouTube URLを厳密チェック）
-        if (!body.uid) {
-          return new Response(JSON.stringify({ ok: false, error: "ログインが必要です。" }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        const rawUrl = String(body.url || "").trim();
-        let isYtValid = false;
-        try {
-          const parsed = new URL(rawUrl);
-          const h = parsed.hostname.toLowerCase();
-          if (h === "youtu.be" && parsed.pathname.length > 1) isYtValid = true;
-          if ((h === "www.youtube.com" || h === "youtube.com" || h === "m.youtube.com") &&
-              (parsed.pathname.startsWith("/shorts/") || (parsed.pathname === "/watch" && parsed.searchParams.get("v")))) {
-            isYtValid = true;
-          }
-        } catch (e) {}
-
-        if (!isYtValid) {
-          return new Response(JSON.stringify({ ok: false, error: "YouTube URLが不適正です。正しいYouTube URLを入力してください。" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
+        if (!body.uid) return new Response(JSON.stringify({ ok: false, error: "ログインが必要です" }), { status: 401 });
         list.unshift({
           id: Date.now(),
           date: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
@@ -199,14 +172,14 @@ export class OnlineCounter {
           username: String(body.username || ""),
           email: String(body.email || ""),
           title: String(body.title || "").slice(0, 100),
-          url: rawUrl.slice(0, 300),
+          url: String(body.url || "").trim().slice(0, 300),
           limit: Number(body.limit || 1000),
           clicks: 0,
           status: "pending",
+          rejectReason: "",
           mp4Info: String(body.mp4Info || ""),
-          mp4Data: String(body.mp4Data || ""),
         });
-        await this.state.storage.put("short_ads", list.slice(0, 100));
+        await this.state.storage.put("short_ads", list.slice(0, 1000));
         return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
       }
 
@@ -214,13 +187,13 @@ export class OnlineCounter {
         const list = (await this.state.storage.get("short_ads")) || [];
         const uid = url.searchParams.get("uid");
         if (uid) {
-          const filtered = list.filter((item) => item.uid === uid).map(({ mp4Data, ...rest }) => rest);
-          return new Response(JSON.stringify(filtered), { headers: { "Content-Type": "application/json" } });
+          return new Response(JSON.stringify(list.filter((i) => i.uid === uid)), { headers: { "Content-Type": "application/json" } });
         }
         if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
         return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
       }
     }
+
 
 
     // 5. リアルタイム閲覧人数（WebSocket）
@@ -499,60 +472,93 @@ export default {
       const users = await (await stub.fetch(new Request(`https://dummy/api/users?key=${ADMIN_KEY}`))).json();
 
       const videoTapData = await (await stub.fetch(new Request(`https://dummy/api/video-tap?key=${ADMIN_KEY}`))).json();
-      const shortAdsList = await (await stub.fetch(new Request(`https://dummy/api/short-ads?key=${ADMIN_KEY}`))).json();
-      const shortAdsHtml = shortAdsList.length === 0
-        ? "<p style='font-size:13px;color:#666;'>現在、ショート動画の掲載申請はありません。</p>"
-        : shortAdsList.map(ad => {
-            const isYtOk = /^https?:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//i.test(ad.url || "");
-            const statusLabel = ad.status === "approved"
-              ? "<span style='color:#2e7d32;font-weight:bold;'>✅ 承諾済み（掲載中）</span>"
-              : ad.status === "rejected"
+            const shortAdsList = await (await stub.fetch(new Request(`https://dummy/api/short-ads?key=${ADMIN_KEY}`))).json();
+      const pendingAds = shortAdsList.filter(a => (a.status || "pending") === "pending").reverse();
+      const decidedAds = shortAdsList.filter(a => a.status === "approved" || a.status === "rejected").slice(0, 10);
+      const displayAds = [...pendingAds, ...decidedAds];
+
+      const shortAdsHtml = displayAds.length === 0
+        ? "<p style='font-size:13px;color:#666;'>表示するショート動画申請はありません。</p>"
+        : displayAds.map(ad => {
+            const st = ad.status || "pending";
+            const statusLabel = st === "approved"
+              ? "<span style='color:#2e7d32;font-weight:bold;'>✅ 承諾済み</span>"
+              : st === "rejected"
               ? "<span style='color:#c62828;font-weight:bold;'>❌ 不許可</span>"
-              : "<span style='color:#e65100;font-weight:bold;'>⏳ 未審査（承認待ち）</span>";
+              : "<span style='color:#e65100;font-weight:bold;'>⏳ 未決定（古い順優先）</span>";
 
             return `
-              <div style="background:#fff;border:2px solid #ffcc80;border-radius:12px;padding:14px;margin-bottom:14px;">
+              <div class="ad-req-card" data-status="${st}" data-search="${(ad.title + " " + ad.username).toLowerCase().replace(/"/g, "&quot;")}" style="background:#fff;border:2px solid ${st === "pending" ? "#e65100" : "#ffcc80"};border-radius:12px;padding:14px;margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                  <span style="font-size:12px;color:#777;">申請日時：${ad.date}</span>
+                  <span style="font-size:12px;color:#777;">申請：${ad.date}</span>
                   <span>${statusLabel}</span>
                 </div>
-                <div style="font-weight:bold;font-size:16px;margin-bottom:4px;">🎬 ${ad.title.replace(/</g, "&lt;")}</div>
-                <div style="font-size:13px;color:#333;margin-bottom:4px;">申請会員：${ad.username.replace(/</g, "&lt;")}（${ad.email.replace(/</g, "&lt;")}）</div>
-                <div style="font-size:13px;margin-bottom:4px;">希望上限：<strong>${Number(ad.limit).toLocaleString()}クリック</strong>（${Math.round(ad.limit * 0.1)}円分） ｜ 動画仕様：${ad.mp4Info || "不明"}</div>
-                <div style="font-size:13px;margin-bottom:8px;word-break:break-all;">
-                  YouTube URLチェック：${isYtOk ? "<strong style='color:#2e7d32;'>✅ 適正なYouTube URL</strong>" : "<strong style='color:#c62828;'>⚠️ 不正なURL</strong>"}<br>
-                  <a href="${ad.url.replace(/"/g, "&quot;")}" target="_blank" style="color:#e65100;">${ad.url.replace(/</g, "&lt;")}</a>
-                </div>
-                ${ad.mp4Data ? `<div style="margin:10px 0;background:#000;border-radius:8px;overflow:hidden;max-width:220px;"><video src="${ad.mp4Data}" controls playsinline style="width:100%;display:block;"></video></div>` : ""}
-                <div style="display:flex;gap:10px;margin-top:10px;">
-                  <button type="button" onclick="reviewShortAd('${ad.id}', 'approved')" style="flex:1;background:#2e7d32;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:14px;">✅ 承諾する</button>
-                  <button type="button" onclick="reviewShortAd('${ad.id}', 'rejected')" style="flex:1;background:#c62828;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:14px;">❌ 不許可にする</button>
+                <div style="font-weight:bold;font-size:15px;margin-bottom:4px;">🎬 ${ad.title.replace(/</g, "&lt;")}</div>
+                <div style="font-size:12px;color:#444;margin-bottom:4px;">会員：${ad.username.replace(/</g, "&lt;")} ｜ 上限：${Number(ad.limit).toLocaleString()}回 ｜ ${ad.mp4Info || ""}</div>
+                <div style="font-size:12px;margin-bottom:6px;word-break:break-all;"><a href="${ad.url.replace(/"/g, "&quot;")}" target="_blank" style="color:#e65100;">${ad.url.replace(/</g, "&lt;")}</a></div>
+                ${st === "rejected" && ad.rejectReason ? `<div style="background:#ffebee;color:#c62828;font-size:12px;padding:6px 10px;border-radius:6px;margin-bottom:8px;">拒否理由：${ad.rejectReason.replace(/</g, "&lt;")}</div>` : ""}
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'approved')" style="flex:1;background:#2e7d32;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:13px;">✅ 承諾</button>
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'rejected')" style="flex:1;background:#c62828;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:13px;">❌ 不許可</button>
+                  <button type="button" onclick="deleteShortAd('${ad.id}')" style="background:#424242;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:13px;">🗑️ 完全削除</button>
                 </div>
               </div>
             `;
           }).join("");
-
-      const latestNoticeHtml = `
+            const latestNoticeHtml = `
         <div style="background:#fff3e0;border:2px solid #e65100;border-radius:12px;padding:16px;margin-bottom:24px;">
-          <h2 style="margin:0 0 12px;color:#e65100;font-size:18px;">🔔 最新のお知らせ（ショート動画掲載申請：${shortAdsList.length}件）</h2>
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;">
+            <h2 style="margin:0;color:#e65100;font-size:17px;">🔔 動画申請（未決定:${pendingAds.length}件 / 全${shortAdsList.length}件）</h2>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <select id="tagFilterSelect" onchange="filterAdCards()" style="padding:6px 8px;border-radius:6px;border:1px solid #ffcc80;font-size:12px;">
+                <option value="all">すべて表示</option>
+                <option value="pending">⏳ 未決定のみ</option>
+                <option value="approved">✅ 承諾済み</option>
+                <option value="rejected">❌ 不許可</option>
+              </select>
+              <input type="text" id="tagSearchInput" oninput="filterAdCards()" placeholder="タイトル・会員名で検索" style="padding:6px 8px;border-radius:6px;border:1px solid #ffcc80;font-size:12px;width:140px;">
+            </div>
+          </div>
           ${shortAdsHtml}
         </div>
         <script>
+          function filterAdCards() {
+            const tag = document.getElementById("tagFilterSelect").value;
+            const kw = document.getElementById("tagSearchInput").value.toLowerCase().trim();
+            document.querySelectorAll(".ad-req-card").forEach(card => {
+              const matchTag = (tag === "all" || card.dataset.status === tag);
+              const matchKw = (!kw || card.dataset.search.includes(kw));
+              card.style.display = (matchTag && matchKw) ? "block" : "none";
+            });
+          }
           async function reviewShortAd(id, status) {
-            const label = status === "approved" ? "承諾（掲載許可）" : "不許可";
-            if (!confirm("このショート動画申請を「" + label + "」にしますか？")) return;
+            let reason = "";
+            if (status === "rejected") {
+              reason = prompt("不許可（拒否）の理由を入力してください（会員画面に表示されます）：", "規約または動画基準を満たしていないため");
+              if (reason === null) return;
+            } else {
+              if (!confirm("この申請を「承諾（掲載許可）」にしますか？")) return;
+            }
             const res = await fetch("/api/short-ads", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "set_status", key: "${ADMIN_KEY}", id: id, status: status })
+              body: JSON.stringify({ action: "set_status", key: "${ADMIN_KEY}", id: id, status: status, reason: reason })
             });
-            if (res.ok) {
-              alert(label + "に更新しました！");
-              location.reload();
-            }
+            if (res.ok) location.reload();
+          }
+          async function deleteShortAd(id) {
+            if (!confirm("この申請ログをサーバーと会員画面から完全に抹消しますか？（元に戻せません）")) return;
+            const res = await fetch("/api/short-ads", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "delete", key: "${ADMIN_KEY}", id: id })
+            });
+            if (res.ok) location.reload();
           }
         </script>
       `;
+
+
 
       
       const roleMap = { client: "依頼者", creator: "クリエイター", both: "両方" };
@@ -680,4 +686,5 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
+
 
