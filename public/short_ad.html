@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ショート動画掲載・クリック推移 | DhuaLines</title>
+<style>
+  body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;background-color:#fff8f0;color:#2b1d12}
+  .header{background:#fff;border-bottom:2px solid #ffe0b2;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+  .header-title{font-size:17px;font-weight:bold;color:#e65100;margin:0}
+  .back-btn{background:#3e2723;color:#fff;text-decoration:none;font-size:12px;font-weight:bold;padding:7px 14px;border-radius:20px}
+  .container{max-width:960px;margin:0 auto;padding:16px}
+
+  /* グラフエリア（スマホ版ではスクロールしても上にピッタリ追従固定） */
+  .chart-card{background:#fff;border:1px solid #ffe0b2;border-radius:14px;padding:16px;box-shadow:0 4px 12px rgba(230,81,0,0.08);margin-bottom:20px;z-index:100}
+  @media (max-width: 768px) {
+    .chart-card{position:sticky;top:0;border-radius:0 0 14px 14px;margin:-16px -16px 20px -16px;box-shadow:0 6px 16px rgba(0,0,0,0.12)}
+  }
+  .chart-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .chart-label{font-size:12px;color:#795548;font-weight:bold}
+  .chart-total{font-size:26px;font-weight:bold;color:#2b1d12}
+  .chart-total span{font-size:13px;color:#e65100;margin-left:4px}
+  .svg-wrap{width:100%;height:160px}
+  @media (max-width: 768px) {
+    .svg-wrap{height:125px}
+  }
+
+  /* 新規掲載依頼フォームカード */
+  .order-card{background:#fff;border:2px solid #ffcc80;border-radius:14px;padding:18px;margin-bottom:24px}
+  .section-title{font-size:17px;font-weight:bold;margin:0 0 12px;padding-left:10px;border-left:4px solid #e65100;color:#3e2723}
+  .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px}
+  label{display:block;font-size:12px;font-weight:bold;color:#5d4037;margin-bottom:4px}
+  input,select,textarea{width:100%;padding:10px;border:1px solid #ffcc80;border-radius:8px;box-sizing:border-box;font-size:14px;background:#fffdf9}
+  .calc-preview{background:#fff3e0;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:bold;color:#e65100;margin-bottom:12px}
+  .btn-submit{width:100%;background:#e65100;color:#fff;border:none;padding:12px;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer}
+  .btn-submit:hover{background:#bf360c}
+
+  /* 掲載済み動画一覧（最新順） */
+  .video-list{display:flex;flex-direction:column;gap:12px}
+  .video-item{background:#fff;border:1px solid #ffe0b2;border-radius:12px;padding:16px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px}
+  .v-info{flex:1;min-width:220px}
+  .v-date{font-size:11px;color:#8d6e63;margin-bottom:4px}
+  .v-title{font-size:16px;font-weight:bold;color:#2b1d12;margin:0 0 6px}
+  .v-url{font-size:12px;color:#e65100;word-break:break-all}
+  .v-stats{text-align:right;min-width:170px}
+  .stat-nums{font-size:15px;font-weight:bold;color:#2b1d12;margin-bottom:6px}
+  .badge-done{display:inline-block;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;font-size:12px;font-weight:bold;padding:4px 12px;border-radius:20px}
+  .badge-active{display:inline-block;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;font-size:12px;font-weight:bold;padding:4px 12px;border-radius:20px}
+  .progress-bar{width:100%;height:8px;background:#ffe0b2;border-radius:4px;overflow:hidden;margin-top:6px}
+  .progress-fill{height:100%;background:#e65100;transition:width 0.3s}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 class="header-title">📈 ショート動画掲載・クリック管理</h1>
+  <a href="index.html" class="back-btn">← トップへ戻る</a>
+</div>
+
+<div class="container">
+  <!-- ★クリック推移折れ線グラフ（スマホでは上部追従固定） -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <div>
+        <div class="chart-label">あなたの掲載動画 累計クリック数（1クリック = 0.1円換算）</div>
+        <div class="chart-total" id="totalClicksText">0 <span>クリック</span></div>
+      </div>
+      <div style="font-size:12px;color:#795548;" id="memberNameLabel">会員専用ダッシュボード</div>
+    </div>
+    <div class="svg-wrap" id="chartArea"></div>
+  </div>
+
+  <!-- ★新規ショート動画掲載の申し込みフォーム -->
+  <div class="order-card">
+    <h2 class="section-title">🎬 新しくショート動画に載せる（0.1円 / 1クリック）</h2>
+    <form id="shortAdForm">
+      <div class="form-row">
+        <div>
+          <label>掲載するスタンプ・動画タイトル（必須）</label>
+          <input type="text" id="adTitle" placeholder="例：ねこの日常スタンプ紹介ショート" required>
+        </div>
+        <div>
+          <label>希望上限クリック数（0.1円単価）</label>
+          <select id="adLimit" onchange="updatePricePreview()">
+            <option value="1000">1,000クリックまで（100円分）</option>
+            <option value="3000">3,000クリックまで（300円分）</option>
+            <option value="5000">5,000クリックまで（500円分）</option>
+            <option value="10000">10,000クリックまで（1,000円分）</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label>LINE STORE URL または 紹介したいリンク（必須）</label>
+        <input type="url" id="adUrl" placeholder="https://line.me..." required>
+      </div>
+      <div class="calc-preview" id="pricePreview">選択プラン：上限 1,000クリック到達で自動掲載終了（目安金額：100円）</div>
+      <button type="submit" class="btn-submit" id="adSubmitBtn">この条件でショート動画掲載を申し込む</button>
+    </form>
+  </div>
+
+  <!-- ★会員に紐づいた過去の掲載動画一覧（最新順） -->
+  <h2 class="section-title">📋 あなたの掲載動画履歴（最新順）</h2>
+  <div class="video-list" id="videoList">
+    <p style="color:#8d6e63;font-size:14px;">読み込み中...</p>
+  </div>
+</div>
+
+<script>
+  var currentUser = null;
+
+  (function checkLogin() {
+    var saved = localStorage.getItem("site_user");
+    if (!saved) {
+      alert("このページは会員専用です。トップページからログイン・会員登録を行ってください。");
+      window.location.href = "index.html";
+      return;
+    }
+    currentUser = JSON.parse(saved);
+    document.getElementById("memberNameLabel").textContent = "👤 " + (currentUser.username || "") + " さんの実績";
+  })();
+
+  function updatePricePreview() {
+    var limit = Number(document.getElementById("adLimit").value || 1000);
+    var yen = Math.round(limit * 0.1);
+    document.getElementById("pricePreview").textContent =
+      "選択プラン：上限 " + limit.toLocaleString() + "クリック到達で自動掲載終了（目安金額：" + yen.toLocaleString() + "円）";
+  }
+
+  // 折れ線グラフ描画（YouTube Studio風のクリーンな折れ線SVG）
+  function renderLineChart(items) {
+    var area = document.getElementById("chartArea");
+    // 古い順（左→右）に並べて推移を描画
+    var ordered = items.slice().reverse();
+    var points = ordered.length > 0 ? ordered.map(function(v) { return Number(v.clicks || 0); }) :;
+    if (points.length === 1) points = [0, points[0]];
+
+    var maxVal = Math.max.apply(null, points.concat([10]));
+    var w = 600, h = 140, padL = 10, padR = 45, padT = 15, padB = 20;
+    var plotW = w - padL - padR;
+    var plotH = h - padT - padB;
+
+    var coords = points.map(function(val, idx) {
+      var x = padL + (plotW * idx) / (points.length - 1);
+      var y = padT + plotH - (plotH * val) / maxVal;
+      return x.toFixed(1) + "," + y.toFixed(1);
+    });
+
+    var gridLines = [0, 0.5, 1].map(function(ratio) {
+      var y = (padT + plotH * (1 - ratio)).toFixed(1);
+      var labelVal = Math.round(maxVal * ratio);
+      return '<line x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '" stroke="#ffe0b2" stroke-width="1"/>' +
+             '<text x="' + (w - padR + 6) + '" y="' + (Number(y) + 4) + '" font-size="11" fill="#8d6e63">' + labelVal + '</text>';
+    }).join("");
+
+    var dots = points.map(function(val, idx) {
+      var x = (padL + (plotW * idx) / (points.length - 1)).toFixed(1);
+      var y = (padT + plotH - (plotH * val) / maxVal).toFixed(1);
+      return '<circle cx="' + x + '" cy="' + y + '" r="4" fill="#e65100"/>';
+    }).join("");
+
+    area.innerHTML =
+      '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="100%" preserveAspectRatio="none">' +
+        gridLines +
+        '<polyline fill="none" stroke="#e65100" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="' + coords.join(" ") + '"/>' +
+        dots +
+      '</svg>';
+  }
+
+  async function loadMyShortAds() {
+    if (!currentUser) return;
+    try {
+      var res = await fetch("/api/short-ads?uid=" + encodeURIComponent(currentUser.uid));
+      var list = await res.json();
+      var total = list.reduce(function(sum, item) { return sum + Number(item.clicks || 0); }, 0);
+      document.getElementById("totalClicksText").innerHTML = total.toLocaleString() + ' <span>クリック（約' + (total * 0.1).toFixed(1) + '円分）</span>';
+      renderLineChart(list);
+
+      var listEl = document.getElementById("videoList");
+      if (list.length === 0) {
+        listEl.innerHTML = '<div style="background:#fff;border:1px dashed #ffcc80;border-radius:12px;padding:28px;text-align:center;color:#8d6e63;font-size:14px;">まだ掲載中のショート動画はありません。<br>上のフォームから最初の掲載を申し込めます！</div>';
+        return;
+      }
+
+      listEl.innerHTML = list.map(function(item) {
+        var clicks = Number(item.clicks || 0);
+        var limit = Number(item.limit || 1000);
+        var isReached = clicks >= limit;
+        var pct = Math.min(100, Math.round((clicks / limit) * 100));
+        return '<div class="video-item">' +
+          '<div class="v-info">' +
+            '<div class="v-date">申込日時：' + item.date + '</div>' +
+            '<div class="v-title">' + item.title.replace(/</g, "&lt;") + '</div>' +
+            '<div class="v-url"><a href="' + item.url.replace(/"/g, "&quot;") + '" target="_blank" style="color:#e65100;">' + item.url.replace(/</g, "&lt;") + '</a></div>' +
+          '</div>' +
+          '<div class="v-stats">' +
+            '<div class="stat-nums">最大クリック数：' + clicks.toLocaleString() + ' / 上限 ' + limit.toLocaleString() + '</div>' +
+            (isReached ? '<span class="badge-done">✅ 上限達成（掲載終了）</span>' : '<span class="badge-active">🔥 上限未達成（掲載中）</span>') +
+            '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%;"></div></div>' +
+          '</div>' +
+'';
+}).join("");
+} catch (e) {
+document.getElementById("videoList").innerHTML = 'データの読み込みに失敗しました。';
+}
+}
+document.getElementById("shortAdForm").addEventListener("submit", async function(e) {
+e.preventDefault();
+if (!currentUser) return;
+var btn = document.getElementById("adSubmitBtn");
+btn.disabled = true;
+btn.textContent = "送信中...";
+try {
+var res = await fetch("/api/short-ads", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({
+uid: currentUser.uid,
+username: currentUser.username,
+email: currentUser.email,
+title: document.getElementById("adTitle").value,
+limit: Number(document.getElementById("adLimit").value),
+url: document.getElementById("adUrl").value
+})
+});
+if (res.ok) {
+alert("ショート動画の掲載申し込みを受け付けました！下の履歴に追加されました。");
+document.getElementById("shortAdForm").reset();
+updatePricePreview();
+loadMyShortAds();
+} else {
+alert("申し込みに失敗しました。");
+}
+} finally {
+btn.disabled = false;
+btn.textContent = "この条件でショート動画掲載を申し込む";
+}
+});
+loadMyShortAds();
