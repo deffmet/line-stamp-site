@@ -164,14 +164,15 @@
     }
   }
 
-  async function handleAuth() {
+    async function handleAuth() {
     var btn = document.getElementById('submit-btn');
     var email = document.getElementById('email').value.trim();
     var password = document.getElementById('password').value;
     var passwordConfirm = document.getElementById('password-confirm').value;
     var username = document.getElementById('username').value.trim();
     var role = document.getElementById('user-role').value;
-    var trap = document.getElementById('website_url').value;
+    var trapEl = document.getElementById('website_url');
+    var trap = trapEl ? trapEl.value : '';
     var turnstileInput = document.querySelector('[name="cf-turnstile-response"]');
     var cfToken = turnstileInput ? turnstileInput.value : '';
 
@@ -206,17 +207,12 @@
       var data = await res.json();
 
       if (!res.ok || !data.ok) {
-        var errCode = data.error || '登録に失敗しました';
-        if (errCode === 'EMAIL_EXISTS') errCode = 'このメールアドレスは既に登録されています。下の「ログイン」からログインしてください。';
-        if (errCode === 'INVALID_LOGIN_CREDENTIALS' || errCode === 'EMAIL_NOT_FOUND' || errCode === 'INVALID_PASSWORD') errCode = 'メールアドレスまたはパスワードが間違っています。';
-        if (errCode.indexOf('WEAK_PASSWORD') !== -1) errCode = 'パスワードは6文字以上で入力してください。';
-        throw new Error(errCode);
+        throw new Error(data.error || '認証に失敗しました');
       }
 
       localStorage.setItem('site_user', JSON.stringify(data.user));
-      showMessage(isRegisterMode ? '会員登録が完了しました！' : 'ログインしました！', false);
       renderMypage(data.user);
-
+      showMessage(isRegisterMode ? '会員登録が完了しました！' : 'ログインしました！', false);
     } catch (e) {
       showMessage('エラー: ' + e.message, true);
       if (window.turnstile) window.turnstile.reset();
@@ -226,7 +222,7 @@
     }
   }
 
-    async function handleUpdateRole() {
+  async function handleUpdateRole() {
     var saved = localStorage.getItem('site_user');
     if (!saved) return showMessage('ログインが必要です。', true);
 
