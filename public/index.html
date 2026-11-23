@@ -289,13 +289,11 @@ img, video {
 <div class="channel-header">
   <div class="channel-title-row">
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
-      <h1 class="channel-title">LINEスタンプ×ボイス動画 企画サイト</h1>
-      <div class="live-badge">
-        <span class="live-dot"></span>
-        <span>現在 <strong id="online-count">1</strong> 人が閲覧中</span>
-      </div>
+      <h1 class="channel-title">HookupStickers</h1>
+      <span class="live-badge" id="liveBadge" style="display:none;"><span class="live-dot"></span>現在 <strong id="viewerCount">1</strong>人が閲覧中</span>
     </div>
     <div class="header-right-actions">
+
       <a href="login.html" id="headerAuthBtn" class="auth-nav-btn" style="margin-left:0;">👤 無料会員登録 / ログイン</a>
       <button type="button" class="hamburger-btn" id="openDrawerBtn" title="メニューを開く" aria-label="メニュー">
         <span></span>
@@ -505,10 +503,17 @@ window.addEventListener("resize", resizeTopAd);
 function connectCounter(){
   const protocol=location.protocol==="https:"?"wss:":"ws:";
   const ws=new WebSocket(`${protocol}//${location.host}/ws`);
-  ws.onmessage=(event)=>{document.getElementById("online-count").textContent=event.data};
+  ws.onmessage=(event)=>{
+    const count=Number(event.data)||1;
+    const countEl=document.getElementById("viewerCount");
+    const badgeEl=document.getElementById("liveBadge");
+    if(countEl) countEl.textContent=count;
+    if(badgeEl) badgeEl.style.display=count>=10?"inline-flex":"none";
+  };
   ws.onclose=()=>{setTimeout(connectCounter,3000)};
 }
 connectCounter();
+
 
 const videoBox=document.getElementById("floatingVideo");
 const dragHeader=document.getElementById("videoDragHeader");
@@ -819,5 +824,6 @@ document.addEventListener("dragstart", (e) => {
   
 </body>
 </html>
+
 
 
