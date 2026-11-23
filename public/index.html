@@ -80,6 +80,7 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 /* 見出しの左縦線を濃いオレンジに変更 */
 .section-title{font-size:20px;font-weight:bold;margin:0 0 16px;padding-left:10px;border-left:4px solid #e65100;color:#3e2723}
 /* スタンプ一覧カードを正方形（1:1）に統一 */
+/* スタンプ一覧カード（PC版はそのまま、スマホ版だけ横に3列コンパクト表示） */
 .stamp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;margin-bottom:40px}
 .stamp-card{background:#fff;border:1px solid #ffe0b2;border-radius:14px;padding:14px;text-align:center;display:flex;flex-direction:column;justify-content:space-between;aspect-ratio:1/1;box-sizing:border-box;transition:transform 0.2s,box-shadow 0.2s}
 .stamp-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(230,81,0,0.12)}
@@ -88,6 +89,16 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 .stamp-creator{font-size:11px;color:#795548;margin:0 0 8px}
 .btn-store{display:block;background-color:#e65100;color:#fff;text-decoration:none;font-weight:bold;font-size:12px;padding:9px 8px;border-radius:8px}
 .btn-store:hover{background-color:#bf360c}
+
+@media (max-width: 768px) {
+  .stamp-grid{grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:28px}
+  .stamp-card{padding:8px 6px;border-radius:10px;aspect-ratio:auto;min-height:145px}
+  .stamp-img{width:56px;height:56px;margin:0 auto 4px}
+  .stamp-name{font-size:11px;margin:0 0 2px}
+  .stamp-creator{font-size:9px;margin:0 0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .btn-store{font-size:10px;padding:6px 4px;border-radius:6px}
+}
+
 .action-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:32px}
 .card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:20px}
 .card h3{font-size:18px;margin:0 0 8px}
@@ -297,7 +308,7 @@ img, video {
   </div>
   <ul class="drawer-menu">
     <li><button type="button" class="drawer-item disabled" onclick="alert('スタンプイラスト機能は現在準備中です。')">🎨 スタンプイラスト（準備中）</button></li>
-    <li><button type="button" class="drawer-item" onclick="closeDrawer(); goToShortAdPage();">🎬 ショート動画を掲載する</button></li>
+     <li><a href="login.html" id="drawerShortAdLink" class="drawer-item" onclick="handleShortAdClick(event)">🎬 ショート動画を掲載する</a></li>
     <li><button type="button" class="drawer-item disabled" onclick="alert('掲載主様ダッシュボードは現在準備中です。')">📊 掲載主様ダッシュボード（準備中）</button></li>
     <li id="drawerLogoutItem" style="display:none;"><button type="button" class="drawer-item logout" id="drawerLogoutBtn">🚪 ログアウト</button></li>
     <li><button type="button" class="drawer-item" id="drawerContactBtn">✉️ 問い合わせ</button></li>
@@ -723,7 +734,7 @@ document.addEventListener("dragstart", (e) => {
 <div class="promo-overlay" id="firstVisitPromo">
   <div class="promo-modal">
     <button type="button" class="promo-close" onclick="closeFirstPromo()" title="閉じる">×</button>
-    <div class="promo-banner" onclick="closeFirstPromo(); goToShortAdPage();">
+    <div class="promo-banner" onclick="closeFirstPromo(); handleShortAdClick(event);">
       <span class="promo-badge">🎬 クリエイター様募集中</span>
       <h3 class="promo-title">最新ショート動画にあなたのスタンプを載せませんか？</h3>
       <p class="promo-sub">1クリック0.1円から！指定クリック数まで自動で転載・紹介し続けます。タップして詳細・掲載依頼へ ↗</p>
@@ -748,10 +759,26 @@ document.addEventListener("dragstart", (e) => {
 </div>
 
 <script>
-  function goToShortAdPage() {
+  // 会員ならダッシュボード(short_ad.html)、未会員ならログイン案内(login.html)に自動リンク設定
+  (function syncShortAdLinks() {
+    var saved = localStorage.getItem("site_user");
+    var drawerLink = document.getElementById("drawerShortAdLink");
+    if (saved && drawerLink) {
+      drawerLink.href = "short_ad.html";
+    }
+  })();
+
+  function handleShortAdClick(e) {
+    if (e) e.preventDefault();
+    if (typeof closeDrawer === "function") closeDrawer();
     var saved = localStorage.getItem("site_user");
     if (!saved) {
-      document.getElementById("memberGateModal").classList.add("active");
+      var gate = document.getElementById("memberGateModal");
+      if (gate) {
+        gate.classList.add("active");
+      } else {
+        window.location.href = "login.html";
+      }
       return;
     }
     window.location.href = "short_ad.html";
@@ -766,7 +793,6 @@ document.addEventListener("dragstart", (e) => {
   }
 
   window.addEventListener("load", function() {
-    // 「次回から表示しない」が未チェックかつ、このブラウザセッションで初回起動時のみ表示
     if (localStorage.getItem("hide_first_promo") !== "1" && !sessionStorage.getItem("promo_shown_once")) {
       sessionStorage.setItem("promo_shown_once", "1");
       setTimeout(function() {
@@ -775,6 +801,7 @@ document.addEventListener("dragstart", (e) => {
     }
   });
 </script>
+
 
   
 </body>
