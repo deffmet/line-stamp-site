@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新規会員登録 / ログイン</title>
+  <script src="https://cloudflare.com" async defer></script>
+  <style>
+    body{font-family:sans-serif;background:#f4f6f9;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;padding:16px;box-sizing:border-box}
+    .card{background:#fff;padding:28px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);width:100%;max-width:400px}
+    h2{margin-top:0;text-align:center;color:#333}
+    .form-group{margin-bottom:14px;text-align:left}
+    label{display:block;font-size:13px;font-weight:bold;margin-bottom:5px;color:#555}
+    input,select{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;font-size:16px}
+    button{width:100%;padding:12px;background:#06c755;color:#fff;border:none;border-radius:6px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px}
+    .toggle-link{text-align:center;margin-top:15px;font-size:14px;color:#06c755;cursor:pointer;text-decoration:underline}
+    .message{margin-top:15px;padding:10px;border-radius:6px;font-size:13px;display:none;word-break:break-all}
+    .error{background:#ffe6e6;color:#d00}
+    .success{background:#e6ffed;color:#00802b}
+    #mypage-area{display:none;text-align:center}
+    .role-edit-box{background:#f8f9fa;border:1px solid #e5e5e5;border-radius:8px;padding:14px;margin:16px 0;text-align:left}
+    .btn-save-role{background:#0f0f0f;font-size:14px;padding:10px;margin-top:8px}
+    .logout-btn{background:#666}
+    .hp-trap{position:absolute;left:-9999px;opacity:0;height:0;width:0}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div id="auth-area" style="display:none;">
+    <h2 id="form-title">新規会員登録</h2>
+    <div class="hp-trap" aria-hidden="true">
+      <input type="text" id="website_url" tabindex="-1" autocomplete="off">
+    </div>
+    <div class="form-group" id="name-group">
+      <label>ユーザー名（ニックネーム）</label>
+      <input type="text" id="username" placeholder="例：クリエイター太郎">
+    </div>
+    <div class="form-group" id="role-group">
+      <label>利用目的</label>
+      <select id="user-role">
+        <option value="client">作品を依頼したい（依頼者）</option>
+        <option value="creator">依頼を受けて制作したい（クリエイター）</option>
+        <option value="both">両方利用したい</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>メールアドレス</label>
+      <input type="email" id="email" placeholder="example@mail.com">
+    </div>
+    <div class="form-group">
+      <label>パスワード（6文字以上）</label>
+      <input type="password" id="password" placeholder="******">
+    </div>
+
+    <div class="cf-turnstile" data-sitekey="0x4AAAAAAGMV95IiTAxNXRVR" style="margin:10px 0;"></div>
+
+    <button type="button" id="submit-btn" onclick="handleAuth()">無料で登録する</button>
+    <div class="toggle-link" id="toggle-mode" onclick="toggleAuthMode()">すでにアカウントをお持ちの方はこちら（ログイン）</div>
+  </div>
+
+  <div id="mypage-area">
+    <h2>マイページ</h2>
+    <p id="welcome-text" style="font-weight:bold;font-size:18px;margin-bottom:6px"></p>
+    <p id="role-text" style="font-size:14px;color:#06c755;font-weight:bold;margin-top:0"></p>
+
+    <!-- ★ログイン者限定：利用区分の変更フォーム -->
+    <div class="role-edit-box">
+      <label for="edit-user-role">利用区分の変更</label>
+      <select id="edit-user-role">
+        <option value="client">作品を依頼したい（依頼者）</option>
+        <option value="creator">依頼を受けて制作したい（クリエイター）</option>
+        <option value="both">両方利用したい</option>
+      </select>
+      <button type="button" id="save-role-btn" class="btn-save-role" onclick="handleUpdateRole()">利用区分を変更する</button>
+    </div>
+
+    <a href="index.html" style="display:block;margin:20px 0;color:#06c755;font-weight:bold">トップページへ戻る</a>
+    <button type="button" class="logout-btn" onclick="handleLogout()">ログアウト</button>
+  </div>
+  <div id="msg-box" class="message"></div>
+</div>
+
+<script>
+  var isRegisterMode = true;
+
+  function showMessage(text, isError) {
+    var msgBox = document.getElementById('msg-box');
+    msgBox.textContent = text;
+    msgBox.className = 'message ' + (isError ? 'error' : 'success');
+    msgBox.style.display = 'block';
+  }
+
+  function toggleAuthMode() {
+    isRegisterMode = !isRegisterMode;
+    document.getElementById('msg-box').style.display = 'none';
+    document.getElementById('form-title').textContent = isRegisterMode ? '新規会員登録' : 'ログイン';
+    document.getElementById('name-group').style.display = isRegisterMode ? 'block' : 'none';
+    document.getElementById('role-group').style.display = isRegisterMode ? 'block' : 'none';
+    document.getElementById('submit-btn').textContent = isRegisterMode ? '無料で登録する' : 'ログインする';
+    document.getElementById('toggle-mode').textContent = isRegisterMode ? 'すでにアカウントをお持ちの方はこちら（ログイン）' : '初めての方はこちら（新規会員登録）';
+  }
+
+  function renderMypage(userData) {
+    document.getElementById('auth-area').style.display = 'none';
+    document.getElementById('mypage-area').style.display = 'block';
+    var roleMap = { client: '依頼者', creator: 'クリエイター', both: '依頼者・クリエイター両方' };
+    document.getElementById('welcome-text').textContent = 'ようこそ、' + (userData.username || userData.email) + ' さん！';
+    document.getElementById('role-text').textContent = userData.role ? '現在の登録区分：' + (roleMap[userData.role] || '') : '';
+    if (userData.role) {
+      document.getElementById('edit-user-role').value = userData.role;
+    }
+  }
+
+  async function handleAuth() {
+    var btn = document.getElementById('submit-btn');
+    var email = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+    var username = document.getElementById('username').value.trim();
+    var role = document.getElementById('user-role').value;
+    var trap = document.getElementById('website_url').value;
+    var turnstileInput = document.querySelector('[name="cf-turnstile-response"]');
+    var cfToken = turnstileInput ? turnstileInput.value : '';
+
+    if (!email || !password) return showMessage('メールアドレスとパスワードを入力してください。', true);
+    if (isRegisterMode && !username) return showMessage('ユーザー名を入力してください。', true);
+
+    btn.disabled = true;
+    btn.textContent = 'セキュリティ確認中...';
+
+    try {
+      var res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: isRegisterMode ? 'register' : 'login',
+          email: email,
+          password: password,
+          username: username,
+          role: role,
+          trap: trap,
+          cfToken: cfToken
+        })
+      });
+      var data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        var errCode = data.error || '登録に失敗しました';
+        if (errCode === 'EMAIL_EXISTS') errCode = 'このメールアドレスは既に登録されています。下の「ログイン」からログインしてください。';
+        if (errCode === 'INVALID_LOGIN_CREDENTIALS' || errCode === 'EMAIL_NOT_FOUND' || errCode === 'INVALID_PASSWORD') errCode = 'メールアドレスまたはパスワードが間違っています。';
+        if (errCode.indexOf('WEAK_PASSWORD') !== -1) errCode = 'パスワードは6文字以上で入力してください。';
+        throw new Error(errCode);
+      }
+
+      localStorage.setItem('site_user', JSON.stringify(data.user));
+      showMessage(isRegisterMode ? '会員登録が完了しました！' : 'ログインしました！', false);
+      renderMypage(data.user);
+
+    } catch (e) {
+      showMessage('エラー: ' + e.message, true);
+      if (window.turnstile) window.turnstile.reset();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = isRegisterMode ? '無料で登録する' : 'ログインする';
+    }
+  }
+
+    async function handleUpdateRole() {
+    var saved = localStorage.getItem('site_user');
+    if (!saved) return showMessage('ログインが必要です。', true);
+
+    var userData = JSON.parse(saved);
+    var newRole = document.getElementById('edit-user-role').value;
+    var btn = document.getElementById('save-role-btn');
+
+    btn.disabled = true;
+    btn.textContent = '更新中...';
+
+    try {
+      var res = await fetch('/api/update-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: userData.uid,
+          email: userData.email,
+          username: userData.username,
+          role: newRole,
+          idToken: userData.idToken || '',
+          refreshToken: userData.refreshToken || ''
+        })
+      });
+      var data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || '変更に失敗しました');
+      }
+
+      userData.role = newRole;
+      if (data.idToken) userData.idToken = data.idToken;
+      localStorage.setItem('site_user', JSON.stringify(userData));
+      renderMypage(userData);
+      showMessage('利用区分を変更しました！', false);
+    } catch (e) {
+      showMessage('エラー: ' + e.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '利用区分を変更する';
+    }
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('site_user');
+    document.getElementById('auth-area').style.display = 'block';
+    document.getElementById('mypage-area').style.display = 'none';
+    document.getElementById('msg-box').style.display = 'none';
+    if (window.turnstile) window.turnstile.reset();
+  }
+
+  (function() {
+    var saved = localStorage.getItem('site_user');
+    if (saved) {
+      try {
+        renderMypage(JSON.parse(saved));
+        return;
+      } catch (e) {}
+    }
+    document.getElementById('auth-area').style.display = 'block';
+  })();
+
+</script>
+</body>
+</html>
