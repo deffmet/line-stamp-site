@@ -212,11 +212,14 @@ videoEl.src = tempUrl;
 });
 }
 function renderLineChart(items) {
-var area = document.getElementById("chartArea");
-var ordered = items.slice().reverse();
-var points = ordered.length > 0 ? ordered.map(function(v) { return Number(v.clicks || 0); }) :;
-if (points.length === 1) points = [0, points];
-var maxVal = Math.max.apply(null, points.concat());
+    var area = document.getElementById("chartArea");
+    var ordered = items.slice().reverse();
+    var points = ordered.length > 0 ? ordered.map(function(v) { return Number(v.clicks || 0); }) : new Array(0, 0);
+    if (points.length === 1) points = [0, points[0]];
+
+    var maxVal = Math.max.apply(null, points.concat([10]));
+
+
 var w = 600, h = 140, padL = 10, padR = 45, padT = 15, padB = 20;
 var plotW = w - padL - padR;
 var plotH = h - padT - padB;
@@ -297,7 +300,8 @@ if (!currentUser) return;
 var title = document.getElementById("adTitle").value.trim();
 var url = document.getElementById("adUrl").value.trim();
 var fileInput = document.getElementById("adMp4File");
-var file = fileInput.files && fileInput.files;
+    var file = fileInput.files && fileInput.files[0];
+
 // 1. 未入力チェック
 if (!title) {
 return showFormError("「掲載するshort動画タイトル名（必須）」が入力されていません。");
