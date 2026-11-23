@@ -219,6 +219,28 @@ img, video {
 .ad-close-btn:hover{background:#d93025}
 .ad-box img{max-width:100%;height:auto !important}
 
+
+/* 初回起動時ポップアップ（スマホで横が少し広め・縦が少し短め） */
+.promo-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:10005;justify-content:center;align-items:center;padding:12px;box-sizing:border-box}
+.promo-overlay.active{display:flex}
+.promo-modal{background:#fff;width:96%;max-width:520px;border-radius:16px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,0.3);position:relative;animation:fadeIn 0.25s ease;border:2px solid #ffcc80}
+.promo-close{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.65);color:#fff;border:none;font-size:16px;cursor:pointer;z-index:2;line-height:1}
+.promo-banner{background:linear-gradient(135deg,#e65100 0%,#ff8f00 100%);color:#fff;padding:16px 20px;cursor:pointer;text-align:left}
+.promo-badge{display:inline-block;background:#fff;color:#e65100;font-size:11px;font-weight:bold;padding:2px 10px;border-radius:20px;margin-bottom:6px}
+.promo-title{font-size:18px;font-weight:bold;margin:0 0 4px;line-height:1.35}
+.promo-sub{font-size:12px;margin:0;opacity:0.95;line-height:1.4}
+.promo-cta{display:inline-block;margin-top:10px;background:#fff;color:#e65100;font-weight:bold;font-size:13px;padding:7px 16px;border-radius:20px}
+.promo-footer{background:#fff8f0;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#795548}
+.promo-footer label{display:flex;align-items:center;gap:5px;cursor:pointer;margin:0}
+
+/* 未会員タップ時の会員登録誘導ポップアップ */
+.member-gate-box{background:#fff;width:92%;max-width:380px;border-radius:16px;padding:24px 20px;text-align:center;box-shadow:0 10px 28px rgba(0,0,0,0.28);border:2px solid #ffcc80}
+.member-gate-btn{display:block;background:#e65100;color:#fff;text-decoration:none;font-weight:bold;font-size:15px;padding:12px;border-radius:25px;margin-top:16px}
+.member-gate-btn:hover{background:#bf360c}
+
+
+
+  
 </style>
 </head>
 <body><div class="yt-banner-wrapper">
@@ -275,7 +297,7 @@ img, video {
   </div>
   <ul class="drawer-menu">
     <li><button type="button" class="drawer-item disabled" onclick="alert('スタンプイラスト機能は現在準備中です。')">🎨 スタンプイラスト（準備中）</button></li>
-    <li><button type="button" class="drawer-item disabled" onclick="alert('依頼機能は現在準備中です。')">📝 依頼する（準備中）</button></li>
+    <li><button type="button" class="drawer-item" onclick="closeDrawer(); goToShortAdPage();">🎬 ショート動画を掲載する</button></li>
     <li><button type="button" class="drawer-item disabled" onclick="alert('掲載主様ダッシュボードは現在準備中です。')">📊 掲載主様ダッシュボード（準備中）</button></li>
     <li id="drawerLogoutItem" style="display:none;"><button type="button" class="drawer-item logout" id="drawerLogoutBtn">🚪 ログアウト</button></li>
     <li><button type="button" class="drawer-item" id="drawerContactBtn">✉️ 問い合わせ</button></li>
@@ -697,6 +719,62 @@ document.addEventListener("dragstart", (e) => {
 
 </script>
 
+<!-- ★初回起動時ポップアップ（最新ショート動画掲載の勧誘） -->
+<div class="promo-overlay" id="firstVisitPromo">
+  <div class="promo-modal">
+    <button type="button" class="promo-close" onclick="closeFirstPromo()" title="閉じる">×</button>
+    <div class="promo-banner" onclick="closeFirstPromo(); goToShortAdPage();">
+      <span class="promo-badge">🎬 クリエイター様募集中</span>
+      <h3 class="promo-title">最新ショート動画にあなたのスタンプを載せませんか？</h3>
+      <p class="promo-sub">1クリック0.1円から！指定クリック数まで自動で転載・紹介し続けます。タップして詳細・掲載依頼へ ↗</p>
+      <span class="promo-cta">ショート動画に掲載する →</span>
+    </div>
+    <div class="promo-footer">
+      <label><input type="checkbox" id="dontShowPromoAgain"> 次回から表示しない</label>
+      <span style="cursor:pointer;text-decoration:underline;" onclick="closeFirstPromo()">閉じる</span>
+    </div>
+  </div>
+</div>
+
+<!-- ★未会員タップ時の会員登録誘導ポップアップ -->
+<div class="promo-overlay" id="memberGateModal">
+  <div class="member-gate-box">
+    <div style="font-size:32px;margin-bottom:8px;">🔒</div>
+    <h3 style="margin:0 0 8px;font-size:18px;color:#3e2723;">会員限定機能です</h3>
+    <p style="font-size:13px;color:#5d4037;margin:0;line-height:1.5;">ショート動画の掲載申し込みやクリック推移グラフの確認は、無料会員登録・ログイン後にご利用いただけます。</p>
+    <a href="login.html" class="member-gate-btn">まずは会員登録から！</a>
+    <button type="button" onclick="document.getElementById('memberGateModal').classList.remove('active')" style="background:none;border:none;color:#8d6e63;font-size:12px;margin-top:12px;cursor:pointer;text-decoration:underline;">閉じる</button>
+  </div>
+</div>
+
+<script>
+  function goToShortAdPage() {
+    var saved = localStorage.getItem("site_user");
+    if (!saved) {
+      document.getElementById("memberGateModal").classList.add("active");
+      return;
+    }
+    window.location.href = "short_ad.html";
+  }
+
+  function closeFirstPromo() {
+    var chk = document.getElementById("dontShowPromoAgain");
+    if (chk && chk.checked) {
+      localStorage.setItem("hide_first_promo", "1");
+    }
+    document.getElementById("firstVisitPromo").classList.remove("active");
+  }
+
+  window.addEventListener("load", function() {
+    // 「次回から表示しない」が未チェックかつ、このブラウザセッションで初回起動時のみ表示
+    if (localStorage.getItem("hide_first_promo") !== "1" && !sessionStorage.getItem("promo_shown_once")) {
+      sessionStorage.setItem("promo_shown_once", "1");
+      setTimeout(function() {
+        document.getElementById("firstVisitPromo").classList.add("active");
+      }, 600);
+    }
+  });
+</script>
 
   
 </body>
