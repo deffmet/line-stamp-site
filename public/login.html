@@ -130,7 +130,14 @@
 
     if (!email || !password) return showMessage('メールアドレスとパスワードを入力してください。', true);
     if (isRegisterMode && !username) return showMessage('ユーザー名を入力してください。', true);
-
+    // ★利用規約への同意チェック（未チェックならここで必ず止める）
+    if (isRegisterMode) {
+      var agreeBox = document.getElementById('agree-terms');
+      if (!agreeBox || !agreeBox.checked) {
+        return showMessage('新規登録するには利用規約・プライバシーポリシーへの同意が必要です。', true);
+      }
+    }
+    
     btn.disabled = true;
     btn.textContent = 'セキュリティ確認中...';
 
