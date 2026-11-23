@@ -535,9 +535,10 @@ export default {
       `;
 
       return new Response(
-        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;">${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title><link rel="icon" href="/icon.png?v=3" type="image/png"></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;">${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
+
 
     }
     // ★会員専用ページ（URL: /my_page_会員の名前）
@@ -548,20 +549,22 @@ export default {
 
       if (!member) {
         return new Response(
-          `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ページが見つかりません</title></head><body style="font-family:sans-serif;text-align:center;padding:60px 20px;background:#f9f9f9;"><h2>404 - 会員ページが見つかりません</h2><p>指定されたユーザー「${targetName.replace(/</g, "&lt;")}」は存在しないか、まだ登録されていません。</p><a href="/" style="color:#06c755;font-weight:bold;">トップページへ戻る</a></body></html>`,
+          `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ページが見つかりません</title><link rel="icon" href="/icon.png?v=3" type="image/png"></head><body style="font-family:sans-serif;text-align:center;padding:60px 20px;background:#fff8f0;"><h2>404 - 会員ページが見つかりません</h2><p>指定されたユーザー「${targetName.replace(/</g, "&lt;")}」は存在しないか、まだ登録されていません。</p><a href="/" style="color:#e65100;font-weight:bold;">トップページへ戻る</a></body></html>`,
           { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } }
         );
       }
+
 
       const roleMap = { client: "依頼者", creator: "クリエイター", both: "依頼者・クリエイター両方" };
       const safeName = member.username.replace(/</g, "&lt;");
       const safeRole = roleMap[member.role] || "会員";
 
       return new Response(
-        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeName} さんの会員ページ | LINEスタンプ×ボイス動画</title><style>body{font-family:sans-serif;background:#f4f6f9;margin:0;padding:20px;color:#0f0f0f}.wrap{max-width:720px;margin:0 auto}.card{background:#fff;border-radius:16px;padding:28px;box-shadow:0 4px 14px rgba(0,0,0,0.08);margin-bottom:20px}.badge{display:inline-block;background:#e6ffed;color:#00802b;font-size:12px;font-weight:bold;padding:4px 12px;border-radius:20px;margin-bottom:8px}.title{font-size:24px;font-weight:bold;margin:0 0 8px}.url-box{background:#f0f2f5;padding:10px 14px;border-radius:8px;font-size:12px;color:#555;word-break:break-all;margin-top:12px}.gallery-empty{border:2px dashed #ddd;border-radius:12px;padding:40px 20px;text-align:center;color:#888;font-size:14px}.nav-links{display:flex;gap:12px;justify-content:center;margin-top:20px}.btn{display:inline-block;padding:10px 20px;border-radius:20px;text-decoration:none;font-weight:bold;font-size:14px;background:#06c755;color:#fff}.btn-sub{background:#0f0f0f}</style></head><body><div class="wrap"><div class="card"><span class="badge">${safeRole}</span><h1 class="title">👤 ${safeName} さんのマイページ</h1><p style="font-size:14px;color:#666;margin:0;">登録日：${member.date || "登録済み"}</p><div class="url-box">専用URL：${url.origin}/my_page_${encodeURIComponent(member.username)}</div></div><div class="card"><h2 style="font-size:18px;margin-top:0;">🎨 投稿スタンプイラスト（240×240px）</h2><div class="gallery-empty">投稿イラスト機能は現在準備中です。<br>今後のアップデートでこちらに240×240pxのスタンプ作品が並びます！</div></div><div class="nav-links"><a href="/" class="btn">トップページへ</a><a href="/login.html" class="btn btn-sub">会員設定・区分変更</a></div></div></body></html>`,
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeName} さんの会員ページ | HookupStickers</title><link rel="icon" href="/icon.png?v=3" type="image/png"><style>body{font-family:sans-serif;background:#fff8f0;margin:0;padding:20px;color:#2b1d12}.wrap{max-width:720px;margin:0 auto}.card{background:#fff;border:1px solid #ffe0b2;border-radius:16px;padding:28px;box-shadow:0 4px 14px rgba(230,81,0,0.08);margin-bottom:20px}.badge{display:inline-block;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;font-size:12px;font-weight:bold;padding:4px 12px;border-radius:20px;margin-bottom:8px}.title{font-size:24px;font-weight:bold;margin:0 0 8px}.url-box{background:#fff8f0;border:1px solid #ffe0b2;padding:10px 14px;border-radius:8px;font-size:12px;color:#5d4037;word-break:break-all;margin-top:12px}.gallery-empty{border:2px dashed #ffcc80;border-radius:12px;padding:40px 20px;text-align:center;color:#8d6e63;font-size:14px}.nav-links{display:flex;gap:12px;justify-content:center;margin-top:20px}.btn{display:inline-block;padding:10px 20px;border-radius:20px;text-decoration:none;font-weight:bold;font-size:14px;background:#e65100;color:#fff}.btn-sub{background:#3e2723}</style></head><body><div class="wrap"><div class="card"><span class="badge">${safeRole}</span><h1 class="title">👤 ${safeName} さんのマイページ</h1><p style="font-size:14px;color:#795548;margin:0;">登録日：${member.date || "登録済み"}</p><div class="url-box">専用URL：${url.origin}/my_page_${encodeURIComponent(member.username)}</div></div><div class="card"><h2 style="font-size:18px;margin-top:0;">🎨 投稿スタンプイラスト（240×240px）</h2><div class="gallery-empty">投稿イラスト機能は現在準備中です。<br>今後のアップデートでこちらに240×240pxのスタンプ作品が並びます！</div></div><div class="nav-links"><a href="/" class="btn">トップページへ</a><a href="/login.html" class="btn btn-sub">会員設定・区分変更</a></div></div></body></html>`,
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
     }
+
     // ★リアルタイムユーザー名重複チェックAPI
     if (url.pathname === "/api/check-username") {
       const name = (url.searchParams.get("name") || "").trim();
@@ -575,6 +578,9 @@ export default {
       return new Response(JSON.stringify({ available: !isDuplicate }), {
         headers: { "Content-Type": "application/json" },
       });
+    }
+    if (url.pathname === "/favicon.ico") {
+      return Response.redirect(`${url.origin}/icon.png`, 302);
     }
 
     return env.ASSETS.fetch(request);
