@@ -26,31 +26,44 @@
 </head>
 <body>
 <div class="card">
-  <div id="auth-area" style="display:none;">
-    <h2 id="form-title">新規会員登録</h2>
-    <div class="hp-trap" aria-hidden="true">
-      <input type="text" id="website_url" tabindex="-1" autocomplete="off">
+   <div id="auth-area" style="display:none;">
+    <div style="margin-bottom:12px;">
+      <a href="index.html" style="display:inline-block;font-size:13px;font-weight:bold;color:#e65100;text-decoration:none;">← トップページへ戻る</a>
     </div>
-    <div class="form-group" id="name-group">
+    <h2 id="form-title">無料会員登録</h2>
+
+    <div class="form-group" id="username-group">
       <label>ユーザー名（ニックネーム）</label>
-      <input type="text" id="username" placeholder="例：クリエイター太郎">
+      <div style="position:relative;display:flex;align-items:center;">
+        <input type="text" id="username" placeholder="例：ねこクリエイター" oninput="checkUsernameRealtime()" style="padding-right:85px;">
+        <span id="username-status" style="position:absolute;right:10px;font-size:12px;font-weight:bold;pointer-events:none;"></span>
+      </div>
     </div>
+
     <div class="form-group" id="role-group">
       <label>利用目的</label>
       <select id="user-role">
-        <option value="client">作品を依頼したい（依頼者）</option>
         <option value="creator">依頼を受けて制作したい（クリエイター）</option>
+        <option value="client">スタンプや動画を依頼したい（依頼者）</option>
         <option value="both">両方利用したい</option>
       </select>
     </div>
+
     <div class="form-group">
       <label>メールアドレス</label>
-      <input type="email" id="email" placeholder="example@mail.com">
+      <input type="email" id="email" placeholder="example@mail.com" required>
     </div>
+
     <div class="form-group">
       <label>パスワード（6文字以上）</label>
-      <input type="password" id="password" placeholder="******">
+      <input type="password" id="password" placeholder="6文字以上のパスワード" required>
     </div>
+
+    <div class="form-group" id="password-confirm-group">
+      <label>パスワード（再確認用）</label>
+      <input type="password" id="password-confirm" placeholder="確認のためもう一度入力">
+    </div>
+
     <div class="form-group" id="terms-group" style="margin-top:12px;">
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:normal;cursor:pointer;">
         <input type="checkbox" id="agree-terms" style="width:auto;margin:0;">
@@ -58,7 +71,7 @@
       </label>
     </div>
 
-    <div class="cf-turnstile" data-sitekey="0x4AAAAAAGMV95IiTAxNXRVR" style="margin:10px 0;"></div>
+        <div class="cf-turnstile" data-sitekey="0x4AAAAAAGMV95IiTAxNXRVR" style="margin:10px 0;"></div>
 
     <button type="button" id="submit-btn" onclick="handleAuth()">無料で登録する</button>
     <div class="toggle-link" id="toggle-mode" onclick="toggleAuthMode()">すでにアカウントをお持ちの方はこちら（ログイン）</div>
@@ -80,7 +93,7 @@
       <button type="button" id="save-role-btn" class="btn-save-role" onclick="handleUpdateRole()">利用区分を変更する</button>
     </div>
 
-    <a href="index.html" style="display:block;margin:20px 0;color:#06c755;font-weight:bold">トップページへ戻る</a>
+    <a href="index.html" style="display:block;margin:20px 0;color:#e65100;font-weight:bold;text-decoration:none;">← トップページへ戻る</a>
     <button type="button" class="logout-btn" onclick="handleLogout()">ログアウト</button>
   </div>
   <div id="msg-box" class="message"></div>
@@ -88,6 +101,7 @@
 
 <script>
   var isRegisterMode = true;
+  var nameCheckTimer = null;
 
   function showMessage(text, isError) {
     var msgBox = document.getElementById('msg-box');
@@ -96,15 +110,47 @@
     msgBox.style.display = 'block';
   }
 
+  // ★ユーザー名のリアルタイム重複チェック（✅ 使用OK / ❌ 使用済み）
+  function checkUsernameRealtime() {
+    var val = document.getElementById('username').value.trim();
+    var statusEl = document.getElementById('username-status');
+    if (!statusEl) return;
+    if (!val) {
+      statusEl.textContent = '';
+      return;
+    }
+    statusEl.textContent = '⏳確認中';
+    statusEl.style.color = '#888';
+
+    clearTimeout(nameCheckTimer);
+    nameCheckTimer = setTimeout(async function() {
+      try {
+        var res = await fetch('/api/check-username?name=' + encodeURIComponent(val));
+        var data = await res.json();
+        if (document.getElementById('username').value.trim() !== val) return;
+        if (data.available) {
+          statusEl.textContent = '✅ 使用OK';
+          statusEl.style.color = '#2e7d32';
+        } else {
+          statusEl.textContent = '❌ 使用済み';
+          statusEl.style.color = '#d93025';
+        }
+      } catch (e) {
+        statusEl.textContent = '';
+      }
+    }, 350);
+  }
+
   function toggleAuthMode() {
     isRegisterMode = !isRegisterMode;
-    document.getElementById('msg-box').style.display = 'none';
-    document.getElementById('form-title').textContent = isRegisterMode ? '新規会員登録' : 'ログイン';
-    document.getElementById('name-group').style.display = isRegisterMode ? 'block' : 'none';
+    document.getElementById('form-title').textContent = isRegisterMode ? '無料会員登録' : '会員ログイン';
+    document.getElementById('username-group').style.display = isRegisterMode ? 'block' : 'none';
     document.getElementById('role-group').style.display = isRegisterMode ? 'block' : 'none';
+    document.getElementById('password-confirm-group').style.display = isRegisterMode ? 'block' : 'none';
     document.getElementById('terms-group').style.display = isRegisterMode ? 'block' : 'none';
     document.getElementById('submit-btn').textContent = isRegisterMode ? '無料で登録する' : 'ログインする';
-    document.getElementById('toggle-mode').textContent = isRegisterMode ? 'すでにアカウントをお持ちの方はこちら（ログイン）' : '初めての方はこちら（新規会員登録）';
+    document.getElementById('toggle-mode').textContent = isRegisterMode ? 'すでにアカウントをお持ちの方はこちら（ログイン）' : '初めての方はこちら（無料会員登録）';
+    document.getElementById('msg-box').style.display = 'none';
   }
 
   function renderMypage(userData) {
@@ -122,6 +168,7 @@
     var btn = document.getElementById('submit-btn');
     var email = document.getElementById('email').value.trim();
     var password = document.getElementById('password').value;
+    var passwordConfirm = document.getElementById('password-confirm').value;
     var username = document.getElementById('username').value.trim();
     var role = document.getElementById('user-role').value;
     var trap = document.getElementById('website_url').value;
@@ -129,15 +176,16 @@
     var cfToken = turnstileInput ? turnstileInput.value : '';
 
     if (!email || !password) return showMessage('メールアドレスとパスワードを入力してください。', true);
-    if (isRegisterMode && !username) return showMessage('ユーザー名を入力してください。', true);
-    // ★利用規約への同意チェック（未チェックならここで必ず止める）
+
     if (isRegisterMode) {
+      if (!username) return showMessage('ユーザー名を入力してください。', true);
+      if (password !== passwordConfirm) return showMessage('確認用パスワードが一致していません。', true);
       var agreeBox = document.getElementById('agree-terms');
       if (!agreeBox || !agreeBox.checked) {
         return showMessage('新規登録するには利用規約・プライバシーポリシーへの同意が必要です。', true);
       }
     }
-    
+
     btn.disabled = true;
     btn.textContent = 'セキュリティ確認中...';
 
