@@ -192,10 +192,14 @@
       listEl.innerHTML = '<p style="color:#8d6e63;font-size:14px;">まだ掲載中のショート動画はありません。</p>';
       return;
     }
-    listEl.innerHTML = list.map(function(item) {
+      listEl.innerHTML = list.map(function(item) {
       var st = item.status === "approved" ? "🔥 掲載中" : item.status === "rejected" ? "❌ 不許可" : "⏳ 審査中";
-      return '<div class="video-item"><div class="v-info"><div class="v-date">' + item.date + '</div><div class="v-title">' + item.title + '</div><div class="v-url">' + item.url + '</div></div><div class="v-stats"><div class="stat-nums">' + item.clicks + ' / ' + item.limit + '</div><span class="badge-active">' + st + '</span></div></div>';
+      var reasonHtml = (item.status === "rejected" && item.rejectReason)
+        ? '<div style="margin-top:6px;padding:6px 10px;background:#ffebee;color:#c62828;border-radius:6px;font-size:12px;font-weight:bold;">不許可理由：' + item.rejectReason.replace(/</g, "&lt;") + '</div>'
+        : '';
+      return '<div class="video-item"><div class="v-info"><div class="v-date">' + item.date + '</div><div class="v-title">' + item.title.replace(/</g, "&lt;") + '</div><div class="v-url">' + item.url.replace(/</g, "&lt;") + '</div>' + reasonHtml + '</div><div class="v-stats"><div class="stat-nums">' + item.clicks + ' / ' + item.limit + '</div><span class="badge-active">' + st + '</span></div></div>';
     }).join("");
+
   }
   document.getElementById("shortAdForm").addEventListener("submit", async function(e) {
     e.preventDefault();
