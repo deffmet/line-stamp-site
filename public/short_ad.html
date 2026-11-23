@@ -12,7 +12,6 @@
   .header-title{font-size:17px;font-weight:bold;color:#e65100;margin:0}
   .back-btn{background:#3e2723;color:#fff;text-decoration:none;font-size:12px;font-weight:bold;padding:7px 14px;border-radius:20px}
   .container{max-width:960px;margin:0 auto;padding:16px}
-
   .chart-card{background:#fff;border:1px solid #ffe0b2;border-radius:14px;padding:16px;box-shadow:0 4px 12px rgba(230,81,0,0.08);margin-bottom:20px;z-index:100}
   @media (max-width: 768px) {
     .chart-card{position:sticky;top:0;border-radius:0 0 14px 14px;margin:-16px -16px 20px -16px;box-shadow:0 6px 16px rgba(0,0,0,0.12)}
@@ -23,7 +22,6 @@
   .chart-total span{font-size:13px;color:#e65100;margin-left:4px}
   .svg-wrap{width:100%;height:150px}
   @media (max-width: 768px) { .svg-wrap{height:120px} }
-
   .order-card{background:#fff;border:2px solid #ffcc80;border-radius:14px;padding:18px;margin-bottom:24px}
   .section-title{font-size:17px;font-weight:bold;margin:0 0 12px;padding-left:10px;border-left:4px solid #e65100;color:#3e2723}
   .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px}
@@ -35,7 +33,6 @@
   .btn-submit:hover{background:#bf360c}
   .btn-submit:disabled{background:#ccc;cursor:not-allowed}
   .notes-box{margin-top:14px;padding-top:12px;border-top:1px dashed #ffcc80;font-size:12px;color:#6d4c41;line-height:1.6}
-
   .video-list{display:flex;flex-direction:column;gap:12px}
   .video-item{background:#fff;border:1px solid #ffe0b2;border-radius:12px;padding:16px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px}
   .v-info{flex:1;min-width:220px}
@@ -116,240 +113,140 @@
     <p style="color:#8d6e63;font-size:14px;">読み込み中...</p>
   </div>
 </div>
-
 <script>
   var currentUser = null;
-
-  (function checkLogin() {
-    var saved = localStorage.getItem("site_user");
-    if (!saved) {
-      alert("このページは会員専用です。トップページからログイン・会員登録を行ってください。");
-      window.location.href = "index.html";
-      return;
-    }
+  var saved = localStorage.getItem("site_user");
+  if (!saved) {
+    alert("ログインが必要です");
+    location.href = "index.html";
+  } else {
     currentUser = JSON.parse(saved);
-    document.getElementById("memberNameLabel").textContent = "👤 " + (currentUser.username || "") + " さんの実績";
-  })();
+    document.getElementById("memberNameLabel").textContent = "👤 " + currentUser.username;
+  }
 
   function showFormError(msg) {
     var box = document.getElementById("formErrorBox");
     box.textContent = "⚠️ " + msg;
     box.style.display = "block";
-    box.scrollIntoView({ behavior: "smooth", block: "center" });
   }
-
-  function hideFormError() {
-    document.getElementById("formErrorBox").style.display = "none";
-  }
-
   function updatePricePreview() {
     var limit = Number(document.getElementById("adLimit").value || 1000);
     var yen = Math.round(limit * 0.1);
     document.getElementById("pricePreview").textContent =
-      "選択プラン：上限 " + limit.toLocaleString() + "クリック到達、または掲載から1週間経過で自動掲載終了（目安金額：" + yen.toLocaleString() + "円）";
+      "選択プラン：上限 " + limit.toLocaleString() + "クリック（目安：" + yen.toLocaleString() + "円）";
   }
 
-  // YouTube URLの厳密チェック関数
   function isValidYoutubeUrl(str) {
-    try {
-      var u = new URL(str);
-      var host = u.hostname.toLowerCase();
-      var isYtHost = (host === "://youtube.com" || host === "youtube.com" || host === "://youtube.com" || host === "youtu.be");
-      if (!isYtHost) return false;
-      if (host === "youtu.be") return u.pathname.length > 1;
-      if (u.pathname.indexOf("/shorts/") === 0) return u.pathname.replace("/shorts/", "").length > 0;
-      if (u.pathname === "/watch") return Boolean(u.searchParams.get("v"));
-      return false;
-    } catch (e) {
-      return false;
-    }
+    return /^https?:\/\/(www\.|m\.)?(youtube\.com\/(shorts\/|watch\?v=)|youtu\.be\/)[A-Za-z0-9_-]+/.test(str);
   }
-
-  // MP4ファイルの容量・解像度(720x1280)チェック＆DataURL変換
-  function validateAndReadMp4(file) {
+  function checkMp4File(file) {
     return new Promise(function(resolve, reject) {
-      if (!file) {
-        return reject("MP4動画ファイルが選択されていません。");
+      if (!file) return reject("MP4動画ファイルを選択してください。");
+      if (file.type !== "video/mp4" && !file.name.toLowerCase().endsWith(".mp4")) {
+        return reject("MP4形式のファイルのみアップロードできます。");
       }
-      var isMp4 = (file.type === "video/mp4") || file.name.toLowerCase().endsWith(".mp4");
-      if (!isMp4) {
-        return reject("動画形式が不適正です。MP4形式（.mp4）のファイルを選択してください。");
+      if (file.size > 25 * 1024 * 1024) {
+        return reject("動画容量が25MBを超えています（現在 " + (file.size / 1024 / 1024).toFixed(1) + "MB）。");
       }
-      var maxBytes = 25 * 1024 * 1024; // 25MB (GitHub制限基準)
-      if (file.size > maxBytes) {
-        return reject("動画容量が規定外です（現在 " + (file.size / 1024 / 1024).toFixed(1) + "MB）。GitHub制限容量の25MB以下にしてください。");
-      }
-
       var tempUrl = URL.createObjectURL(file);
-      var videoEl = document.createElement("video");
-      videoEl.preload = "metadata";
-      videoEl.onloadedmetadata = function() {
-        var w = videoEl.videoWidth;
-        var h = videoEl.videoHeight;
+      var v = document.createElement("video");
+      v.preload = "metadata";
+      v.onloadedmetadata = function() {
+        var w = v.videoWidth, h = v.videoHeight;
         URL.revokeObjectURL(tempUrl);
-        // 規定サイズ 720x1280px チェック
         if (w !== 720 || h !== 1280) {
-          return reject("動画サイズが規定外です（現在 " + w + "×" + h + "px）。規定サイズの 720×1280px に合わせてください。");
+          return reject("動画サイズが規定外です（現在 " + w + "×" + h + "px）。720×1280pxにしてください。");
         }
-        var reader = new FileReader();
-        reader.onload = function() {
-          resolve({
-            name: file.name,
-            sizeMB: (file.size / 1024 / 1024).toFixed(2),
-            width: w,
-            height: h,
-            dataUrl: reader.result
-          });
-        };
-        reader.onerror = function() { reject("動画ファイルの読み込みに失敗しました。"); };
-        reader.readAsDataURL(file);
+        resolve(w + "×" + h + "px / " + (file.size / 1024 / 1024).toFixed(2) + "MB");
       };
-      videoEl.onerror = function() {
+      v.onerror = function() {
         URL.revokeObjectURL(tempUrl);
-reject("MP4動画の解析に失敗しました。破損していない正しいMP4を選択してください。");
-};
-videoEl.src = tempUrl;
-});
-}
-function renderLineChart(items) {
+        reject("動画の読み込みに失敗しました。正しいMP4を選択してください。");
+      };
+      v.src = tempUrl;
+    });
+  }
+  function renderLineChart(items) {
     var area = document.getElementById("chartArea");
     var ordered = items.slice().reverse();
     var points = ordered.length > 0 ? ordered.map(function(v) { return Number(v.clicks || 0); }) : new Array(0, 0);
-    if (points.length === 1) points = [0, points[0]];
+    if (points.length === 1) points = new Array(0, points.at(0));
+    var maxVal = Math.max.apply(null, points.concat(10));
+    var coords = points.map(function(val, idx) {
+      var x = (10 + (545 * idx) / (points.length - 1)).toFixed(1);
+      var y = (125 - (105 * val) / maxVal).toFixed(1);
+      return x + "," + y;
+    });
+    area.innerHTML = '<svg viewBox="0 0 600 140" width="100%" height="100%" preserveAspectRatio="none"><polyline fill="none" stroke="#e65100" stroke-width="3" points="' + coords.join(" ") + '"/></svg>';
+  }
 
-    var maxVal = Math.max.apply(null, points.concat([10]));
+  async function loadMyShortAds() {
+    if (!currentUser) return;
+    var res = await fetch("/api/short-ads?uid=" + encodeURIComponent(currentUser.uid));
+    var list = await res.json();
+    var total = list.reduce(function(sum, item) { return sum + Number(item.clicks || 0); }, 0);
+    document.getElementById("totalClicksText").innerHTML = total.toLocaleString() + ' <span>クリック（約' + (total * 0.1).toFixed(1) + '円分）</span>';
+    renderLineChart(list);
+    var listEl = document.getElementById("videoList");
+    if (list.length === 0) {
+      listEl.innerHTML = '<p style="color:#8d6e63;font-size:14px;">まだ掲載中のショート動画はありません。</p>';
+      return;
+    }
+    listEl.innerHTML = list.map(function(item) {
+      var st = item.status === "approved" ? "🔥 掲載中" : item.status === "rejected" ? "❌ 不許可" : "⏳ 審査中";
+      return '<div class="video-item"><div class="v-info"><div class="v-date">' + item.date + '</div><div class="v-title">' + item.title + '</div><div class="v-url">' + item.url + '</div></div><div class="v-stats"><div class="stat-nums">' + item.clicks + ' / ' + item.limit + '</div><span class="badge-active">' + st + '</span></div></div>';
+    }).join("");
+  }
+  document.getElementById("shortAdForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    document.getElementById("formErrorBox").style.display = "none";
+    if (!currentUser) return;
 
+    var title = document.getElementById("adTitle").value.trim();
+    var url = document.getElementById("adUrl").value.trim();
+    var fileInput = document.getElementById("adMp4File");
+    var file = fileInput.files && fileInput.files.item(0);
 
-var w = 600, h = 140, padL = 10, padR = 45, padT = 15, padB = 20;
-var plotW = w - padL - padR;
-var plotH = h - padT - padB;
-var coords = points.map(function(val, idx) {
-var x = padL + (plotW * idx) / (points.length - 1);
-var y = padT + plotH - (plotH * val) / maxVal;
-return x.toFixed(1) + "," + y.toFixed(1);
-});
-var gridLines = [0, 0.5, 1].map(function(ratio) {
-var y = (padT + plotH * (1 - ratio)).toFixed(1);
-var labelVal = Math.round(maxVal * ratio);
-return '' +
-'' + labelVal + '';
-}).join("");
-var dots = points.map(function(val, idx) {
-var x = (padL + (plotW * idx) / (points.length - 1)).toFixed(1);
-var y = (padT + plotH - (plotH * val) / maxVal).toFixed(1);
-return '';
-}).join("");
-area.innerHTML =
-'' +
-gridLines +
-'<polyline fill="none" stroke="#e65100" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="' + coords.join(" ") + '"/>' +
-dots +
-'';
-}
-async function loadMyShortAds() {
-if (!currentUser) return;
-try {
-var res = await fetch("/api/short-ads?uid=" + encodeURIComponent(currentUser.uid));
-var list = await res.json();
-var total = list.reduce(function(sum, item) { return sum + Number(item.clicks || 0); }, 0);
-document.getElementById("totalClicksText").innerHTML = total.toLocaleString() + ' クリック（約' + (total * 0.1).toFixed(1) + '円分）';
-renderLineChart(list);
-var listEl = document.getElementById("videoList");
-if (list.length === 0) {
-listEl.innerHTML = 'まだ掲載中のショート動画はありません。
-上のフォームから最初の掲載を申し込めます！';
-return;
-}
-listEl.innerHTML = list.map(function(item) {
-var clicks = Number(item.clicks || 0);
-var limit = Number(item.limit || 1000);
-var isReached = clicks >= limit;
-var pct = Math.min(100, Math.round((clicks / limit) * 100));
-var status = item.status || "pending";
-var statusBadge = "";
-if (status === "rejected") {
-statusBadge = '❌ 不許可（審査見送り）';
-} else if (status === "pending") {
-statusBadge = '⏳ 運営審査中（承認待ち）';
-} else if (isReached) {
-statusBadge = '✅ 上限達成（掲載終了）';
-} else {
-statusBadge = '🔥 上限未達成（掲載中）';
-}
-return '' +
-'' +
-'申込日時：' + item.date + (item.mp4Info ? ' ｜ 動画：' + item.mp4Info : '') + '' +
-'' + item.title.replace(/</g, "<") + '' +
-'<a href="' + item.url.replace(/"/g, """) + '" target="_blank" style="color:#e65100;">' + item.url.replace(/</g, "<") + '' +
-'' +
-'' +
-'最大クリック数：' + clicks.toLocaleString() + ' / 上限 ' + limit.toLocaleString() + '' +
-statusBadge +
-'' +
-'' +
-'';
-}).join("");
-} catch (e) {
-document.getElementById("videoList").innerHTML = 'データの読み込みに失敗しました。';
-}
-}
-document.getElementById("shortAdForm").addEventListener("submit", async function(e) {
-e.preventDefault();
-hideFormError();
-if (!currentUser) return;
-var title = document.getElementById("adTitle").value.trim();
-var url = document.getElementById("adUrl").value.trim();
-var fileInput = document.getElementById("adMp4File");
-    var file = fileInput.files && fileInput.files[0];
+    if (!title) return showFormError("「掲載するshort動画タイトル名（必須）」が入力されていません。");
+    if (!url) return showFormError("「YoutubeURL（必須）」が入力されていません。");
+    if (!isValidYoutubeUrl(url)) return showFormError("URLが不適正です。正しいYouTubeのURLを入力してください。");
+    if (!file) return showFormError("「short動画ファイル（MP4・必須）」が選択されていません。");
 
-// 1. 未入力チェック
-if (!title) {
-return showFormError("「掲載するshort動画タイトル名（必須）」が入力されていません。");
-}
-if (!url) {
-return showFormError("「YoutubeURL（必須）」が入力されていません。");
-}
-// 2. YouTube URL形式チェック
-if (!isValidYoutubeUrl(url)) {
-return showFormError("URLが不適正です。正しいYouTube動画またはYouTubeショートのURL（youtube.com... または youtu.be...）を入力してください。");
-}
-if (!file) {
-return showFormError("「short動画ファイル（MP4・必須）」が選択されていません。");
-}
-var btn = document.getElementById("adSubmitBtn");
-btn.disabled = true;
-btn.textContent = "動画サイズ・形式を確認中...";
-try {
-// 3. MP4サイズ(720x1280)と容量(25MB以下)の厳密チェック
-var mp4Meta = await validateAndReadMp4(file);
-btn.textContent = "申請データを送信中...";
-var res = await fetch("/api/short-ads", {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-uid: currentUser.uid,
-username: currentUser.username,
-email: currentUser.email,
-title: title,
-limit: Number(document.getElementById("adLimit").value),
-url: url,
-mp4Info: mp4Meta.width + "×" + mp4Meta.height + "px / " + mp4Meta.sizeMB + "MB",
-mp4Data: mp4Meta.dataUrl
-})
-});
-var data = await res.json();
-if (!res.ok || !data.ok) {
-return showFormError(data.error || "申し込みの送信に失敗しました。");
-}
-alert("ショート動画の掲載申し込みを受け付けました！運営の承認後に掲載が開始されます。");
-document.getElementById("shortAdForm").reset();
-updatePricePreview();
-loadMyShortAds();
-} catch (errMsg) {
-showFormError(typeof errMsg === "string" ? errMsg : "送信中にエラーが発生しました。");
-} finally {
-btn.disabled = false;
-btn.textContent = "この条件でショート動画掲載を申し込む";
-}
-});
-loadMyShortAds();
+    var btn = document.getElementById("adSubmitBtn");
+    btn.disabled = true;
+    btn.textContent = "確認・送信中...";
+
+    try {
+      var mp4Info = await checkMp4File(file);
+      var res = await fetch("/api/short-ads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: currentUser.uid,
+          username: currentUser.username,
+          email: currentUser.email,
+          title: title,
+          limit: Number(document.getElementById("adLimit").value),
+          url: url,
+          mp4Info: mp4Info
+        })
+      });
+      var data = await res.json();
+      if (!res.ok || !data.ok) return showFormError(data.error || "送信に失敗しました。");
+
+      alert("ショート動画の掲載申し込みを受け付けました！運営の承認後に掲載が開始されます。");
+      document.getElementById("shortAdForm").reset();
+      updatePricePreview();
+      loadMyShortAds();
+    } catch (err) {
+      showFormError(typeof err === "string" ? err : "エラーが発生しました。");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "この条件でショート動画掲載を申し込む";
+    }
+  });
+
+  loadMyShortAds();
+</script>
+</body>
+</html>
