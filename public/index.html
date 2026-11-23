@@ -735,15 +735,15 @@ document.addEventListener("dragstart", (e) => {
 
 </script>
 
-<!-- ★初回起動時ポップアップ（最新ショート動画掲載の勧誘） -->
+<!-- ★初回起動時ポップアップ（ショート動画掲載の勧誘） -->
 <div class="promo-overlay" id="firstVisitPromo">
   <div class="promo-modal">
     <button type="button" class="promo-close" onclick="closeFirstPromo()" title="閉じる">×</button>
     <div class="promo-banner" onclick="closeFirstPromo(); handleShortAdClick(event);">
-      <span class="promo-badge">🎬 クリエイター様募集中</span>
-      <h3 class="promo-title">最新ショート動画にあなたのスタンプを載せませんか？</h3>
+      <span class="promo-badge">🎬 動画クリエイター様募集中</span>
+      <h3 class="promo-title">あなたのショート動画を当サイトに載せませんか？</h3>
       <p class="promo-sub">1クリック0.1円から！指定クリック数まで自動で転載・紹介し続けます。タップして詳細・掲載依頼へ ↗</p>
-      <span class="promo-cta">ショート動画に掲載する →</span>
+      <span class="promo-cta">ショート動画を掲載する →</span>
     </div>
     <div class="promo-footer">
       <label><input type="checkbox" id="dontShowPromoAgain"> 次回から表示しない</label>
@@ -751,6 +751,7 @@ document.addEventListener("dragstart", (e) => {
     </div>
   </div>
 </div>
+
 
 <!-- ★未会員タップ時の会員登録誘導ポップアップ -->
 <div class="promo-overlay" id="memberGateModal">
