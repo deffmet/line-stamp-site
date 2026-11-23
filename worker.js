@@ -562,6 +562,20 @@ export default {
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
     }
+    // ★リアルタイムユーザー名重複チェックAPI
+    if (url.pathname === "/api/check-username") {
+      const name = (url.searchParams.get("name") || "").trim();
+      if (!name) {
+        return new Response(JSON.stringify({ available: false }), { headers: { "Content-Type": "application/json" } });
+      }
+      const existingUsers = await (await stub.fetch(new Request(`https://dummy/api/users?key=${ADMIN_KEY}`))).json();
+      const isDuplicate = existingUsers.some(
+        (u) => u.username && u.username.toLowerCase() === name.toLowerCase()
+      );
+      return new Response(JSON.stringify({ available: !isDuplicate }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     return env.ASSETS.fetch(request);
   },
