@@ -144,7 +144,18 @@ export class OnlineCounter {
         const body = await request.json().catch(() => ({}));
         const list = (await this.state.storage.get("short_ads")) || [];
 
-        // 管理者によるクリック数更新
+        // 管理者によるステータス更新（承諾 / 不許可）またはクリック数更新
+        if (body.action === "set_status") {
+          if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+          const target = list.find((item) => String(item.id) === String(body.id));
+          if (target) {
+            target.status = body.status === "approved" ? "approved" : "rejected";
+            target.reviewedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+            await this.state.storage.put("short_ads", list);
+          }
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
+
         if (body.action === "update_clicks") {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
           const target = list.find((item) => String(item.id) === String(body.id));
@@ -155,8 +166,32 @@ export class OnlineCounter {
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
 
-        // 会員による新規申し込み（会員UIDと紐づけ）
-        if (!body.uid) return new Response("Unauthorized", { status: 401 });
+        // 会員による新規申し込み（サーバー側でもYouTube URLを厳密チェック）
+        if (!body.uid) {
+          return new Response(JSON.stringify({ ok: false, error: "ログインが必要です。" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        const rawUrl = String(body.url || "").trim();
+        let isYtValid = false;
+        try {
+          const parsed = new URL(rawUrl);
+          const h = parsed.hostname.toLowerCase();
+          if (h === "youtu.be" && parsed.pathname.length > 1) isYtValid = true;
+          if ((h === "www.youtube.com" || h === "youtube.com" || h === "m.youtube.com") &&
+              (parsed.pathname.startsWith("/shorts/") || (parsed.pathname === "/watch" && parsed.searchParams.get("v")))) {
+            isYtValid = true;
+          }
+        } catch (e) {}
+
+        if (!isYtValid) {
+          return new Response(JSON.stringify({ ok: false, error: "YouTube URLが不適正です。正しいYouTube URLを入力してください。" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
         list.unshift({
           id: Date.now(),
           date: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
@@ -164,11 +199,14 @@ export class OnlineCounter {
           username: String(body.username || ""),
           email: String(body.email || ""),
           title: String(body.title || "").slice(0, 100),
-          url: String(body.url || "").slice(0, 300),
+          url: rawUrl.slice(0, 300),
           limit: Number(body.limit || 1000),
           clicks: 0,
+          status: "pending",
+          mp4Info: String(body.mp4Info || ""),
+          mp4Data: String(body.mp4Data || ""),
         });
-        await this.state.storage.put("short_ads", list.slice(0, 500));
+        await this.state.storage.put("short_ads", list.slice(0, 100));
         return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
       }
 
@@ -176,13 +214,14 @@ export class OnlineCounter {
         const list = (await this.state.storage.get("short_ads")) || [];
         const uid = url.searchParams.get("uid");
         if (uid) {
-          const filtered = list.filter((item) => item.uid === uid);
+          const filtered = list.filter((item) => item.uid === uid).map(({ mp4Data, ...rest }) => rest);
           return new Response(JSON.stringify(filtered), { headers: { "Content-Type": "application/json" } });
         }
         if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
         return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
       }
     }
+
 
     // 5. リアルタイム閲覧人数（WebSocket）
     const webSocketPair = new WebSocketPair();
@@ -460,6 +499,60 @@ export default {
       const users = await (await stub.fetch(new Request(`https://dummy/api/users?key=${ADMIN_KEY}`))).json();
 
       const videoTapData = await (await stub.fetch(new Request(`https://dummy/api/video-tap?key=${ADMIN_KEY}`))).json();
+      const shortAdsList = await (await stub.fetch(new Request(`https://dummy/api/short-ads?key=${ADMIN_KEY}`))).json();
+      const shortAdsHtml = shortAdsList.length === 0
+        ? "<p style='font-size:13px;color:#666;'>現在、ショート動画の掲載申請はありません。</p>"
+        : shortAdsList.map(ad => {
+            const isYtOk = /^https?:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//i.test(ad.url || "");
+            const statusLabel = ad.status === "approved"
+              ? "<span style='color:#2e7d32;font-weight:bold;'>✅ 承諾済み（掲載中）</span>"
+              : ad.status === "rejected"
+              ? "<span style='color:#c62828;font-weight:bold;'>❌ 不許可</span>"
+              : "<span style='color:#e65100;font-weight:bold;'>⏳ 未審査（承認待ち）</span>";
+
+            return `
+              <div style="background:#fff;border:2px solid #ffcc80;border-radius:12px;padding:14px;margin-bottom:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <span style="font-size:12px;color:#777;">申請日時：${ad.date}</span>
+                  <span>${statusLabel}</span>
+                </div>
+                <div style="font-weight:bold;font-size:16px;margin-bottom:4px;">🎬 ${ad.title.replace(/</g, "&lt;")}</div>
+                <div style="font-size:13px;color:#333;margin-bottom:4px;">申請会員：${ad.username.replace(/</g, "&lt;")}（${ad.email.replace(/</g, "&lt;")}）</div>
+                <div style="font-size:13px;margin-bottom:4px;">希望上限：<strong>${Number(ad.limit).toLocaleString()}クリック</strong>（${Math.round(ad.limit * 0.1)}円分） ｜ 動画仕様：${ad.mp4Info || "不明"}</div>
+                <div style="font-size:13px;margin-bottom:8px;word-break:break-all;">
+                  YouTube URLチェック：${isYtOk ? "<strong style='color:#2e7d32;'>✅ 適正なYouTube URL</strong>" : "<strong style='color:#c62828;'>⚠️ 不正なURL</strong>"}<br>
+                  <a href="${ad.url.replace(/"/g, "&quot;")}" target="_blank" style="color:#e65100;">${ad.url.replace(/</g, "&lt;")}</a>
+                </div>
+                ${ad.mp4Data ? `<div style="margin:10px 0;background:#000;border-radius:8px;overflow:hidden;max-width:220px;"><video src="${ad.mp4Data}" controls playsinline style="width:100%;display:block;"></video></div>` : ""}
+                <div style="display:flex;gap:10px;margin-top:10px;">
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'approved')" style="flex:1;background:#2e7d32;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:14px;">✅ 承諾する</button>
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'rejected')" style="flex:1;background:#c62828;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:14px;">❌ 不許可にする</button>
+                </div>
+              </div>
+            `;
+          }).join("");
+
+      const latestNoticeHtml = `
+        <div style="background:#fff3e0;border:2px solid #e65100;border-radius:12px;padding:16px;margin-bottom:24px;">
+          <h2 style="margin:0 0 12px;color:#e65100;font-size:18px;">🔔 最新のお知らせ（ショート動画掲載申請：${shortAdsList.length}件）</h2>
+          ${shortAdsHtml}
+        </div>
+        <script>
+          async function reviewShortAd(id, status) {
+            const label = status === "approved" ? "承諾（掲載許可）" : "不許可";
+            if (!confirm("このショート動画申請を「" + label + "」にしますか？")) return;
+            const res = await fetch("/api/short-ads", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "set_status", key: "${ADMIN_KEY}", id: id, status: status })
+            });
+            if (res.ok) {
+              alert(label + "に更新しました！");
+              location.reload();
+            }
+          }
+        </script>
+      `;
 
       
       const roleMap = { client: "依頼者", creator: "クリエイター", both: "両方" };
@@ -535,9 +628,10 @@ export default {
       `;
 
       return new Response(
-        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title><link rel="icon" href="/icon.png?v=3" type="image/png"></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;">${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title><link rel="icon" href="/icon.png?v=5" type="image/png"></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;">${latestNoticeHtml}${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
+
 
 
     }
@@ -586,3 +680,4 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
+
