@@ -91,13 +91,15 @@ body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic
 .btn-store:hover{background-color:#bf360c}
 
 @media (max-width: 768px) {
-  .stamp-grid{grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:28px}
-  .stamp-card{padding:8px 6px;border-radius:10px;aspect-ratio:auto;min-height:145px}
-  .stamp-img{width:56px;height:56px;margin:0 auto 4px}
-  .stamp-name{font-size:11px;margin:0 0 2px}
-  .stamp-creator{font-size:9px;margin:0 0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .btn-store{font-size:10px;padding:6px 4px;border-radius:6px}
+  .stamp-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:24px}
+  .stamp-card{padding:8px 4px;border-radius:10px;aspect-ratio:auto;min-height:132px;min-width:0}
+  .stamp-card:nth-child(n+7){display:none}
+  .stamp-img{width:52px;height:52px;margin:0 auto 4px}
+  .stamp-name{font-size:10px;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stamp-creator{font-size:9px;margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .btn-store{font-size:9px;padding:6px 2px;border-radius:6px;white-space:nowrap;letter-spacing:-0.3px}
 }
+
 
 .action-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:32px}
 .card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:20px}
