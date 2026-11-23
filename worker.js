@@ -138,6 +138,51 @@ export class OnlineCounter {
         });
       }
     }
+       // 4-4. 会員と紐づくショート動画掲載データ（/api/short-ads）
+    if (url.pathname === "/api/short-ads") {
+      if (request.method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        const list = (await this.state.storage.get("short_ads")) || [];
+
+        // 管理者によるクリック数更新
+        if (body.action === "update_clicks") {
+          if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+          const target = list.find((item) => String(item.id) === String(body.id));
+          if (target) {
+            target.clicks = Math.max(0, Number(body.clicks || 0));
+            await this.state.storage.put("short_ads", list);
+          }
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        // 会員による新規申し込み（会員UIDと紐づけ）
+        if (!body.uid) return new Response("Unauthorized", { status: 401 });
+        list.unshift({
+          id: Date.now(),
+          date: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
+          uid: String(body.uid),
+          username: String(body.username || ""),
+          email: String(body.email || ""),
+          title: String(body.title || "").slice(0, 100),
+          url: String(body.url || "").slice(0, 300),
+          limit: Number(body.limit || 1000),
+          clicks: 0,
+        });
+        await this.state.storage.put("short_ads", list.slice(0, 500));
+        return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+      }
+
+      if (request.method === "GET") {
+        const list = (await this.state.storage.get("short_ads")) || [];
+        const uid = url.searchParams.get("uid");
+        if (uid) {
+          const filtered = list.filter((item) => item.uid === uid);
+          return new Response(JSON.stringify(filtered), { headers: { "Content-Type": "application/json" } });
+        }
+        if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+        return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
+      }
+    }
 
     // 5. リアルタイム閲覧人数（WebSocket）
     const webSocketPair = new WebSocketPair();
@@ -394,10 +439,12 @@ export default {
       url.pathname === "/api/save-user" ||
       url.pathname === "/api/users" ||
       url.pathname === "/api/delete-user" ||
-      url.pathname === "/api/video-tap"
+      url.pathname === "/api/video-tap" ||
+      url.pathname === "/api/short-ads"
     ) {
       return stub.fetch(request);
     }
+
 
 
 
