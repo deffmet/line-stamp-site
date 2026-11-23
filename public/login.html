@@ -213,8 +213,22 @@
       localStorage.setItem('site_user', JSON.stringify(data.user));
       renderMypage(data.user);
       showMessage(isRegisterMode ? '会員登録が完了しました！' : 'ログインしました！', false);
-    } catch (e) {
-      showMessage('エラー: ' + e.message, true);
+       } catch (e) {
+      var errText = e.message || '';
+      if (errText.indexOf('EMAIL_EXISTS') !== -1) {
+        errText = 'このメールアドレスは既に登録されています。';
+      } else if (errText.indexOf('WEAK_PASSWORD') !== -1) {
+        errText = 'パスワードは6文字以上で入力してください。';
+      } else if (errText.indexOf('INVALID_EMAIL') !== -1) {
+        errText = 'メールアドレスの形式が正しくありません。';
+      } else if (errText.indexOf('INVALID_LOGIN_CREDENTIALS') !== -1 || errText.indexOf('INVALID_PASSWORD') !== -1 || errText.indexOf('EMAIL_NOT_FOUND') !== -1) {
+        errText = 'メールアドレスまたはパスワードが間違っています。';
+      } else if (errText.indexOf('TOO_MANY_ATTEMPTS') !== -1) {
+        errText = '試行回数が上限に達しました。しばらく時間をおいてからお試しください。';
+      } else {
+        errText = 'エラー: ' + errText;
+      }
+      showMessage(errText, true);
       if (window.turnstile) window.turnstile.reset();
     } finally {
       btn.disabled = false;
