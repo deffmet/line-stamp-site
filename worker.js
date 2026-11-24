@@ -443,6 +443,7 @@ export class OnlineCounter {
             tags: cleanTags,
             mainImage: String(body.mainImage),
             subImages: safeSubs,
+            adSlot: Math.floor(Math.random() * 3),
           };
 
           await this.state.storage.put("illust_item_" + newId, itemObj);
