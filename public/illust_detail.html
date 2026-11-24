@@ -358,6 +358,23 @@
         '</div>' : '');
 
     recordViewAndSyncStats(item.id);
+        // 投稿時に乱数決定された3つのAdMax広告のうち1つを表示
+    var adScripts = [
+      "https://adm.shinobi.jp/s/0e94197c8d60d4eecdf234afeb3d8d2f",
+      "https://adm.shinobi.jp/s/2d04db4919ab16066cb4e76b1ff58095",
+      "https://adm.shinobi.jp/s/340005cd470b1052d339ef5c0b3e1fd7"
+    ];
+    var chosenSlot = (typeof item.adSlot === "number" && item.adSlot >= 0 && item.adSlot <= 2)
+      ? item.adSlot
+      : (Number(item.id || 0) % 3);
+    var adBox = document.getElementById("illustAdContainer");
+    if (adBox && !adBox.dataset.loaded) {
+      adBox.dataset.loaded = "1";
+      var adSc = document.createElement("script");
+      adSc.src = adScripts[chosenSlot];
+      adBox.appendChild(adSc);
+    }
+
   }
 
   async function previewEditMain(input) {
