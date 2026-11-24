@@ -340,7 +340,7 @@ export class OnlineCounter {
             target.mainImage = String(body.mainImage).slice(0, 350000);
           }
           if (Array.isArray(body.subImages)) {
-            target.subImages = body.subImages.filter((s) => String(s).startsWith("data:image/")).slice(0, 3).map((s) => String(s).slice(0, 350000));
+            target.subImages = body.subImages.filter(validImg).slice(0, 3).map((s) => String(s).slice(0, 350000));
           }
           target.updatedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
           await this.state.storage.put("illusts", all);
@@ -354,7 +354,7 @@ export class OnlineCounter {
         }
         const newId = now;
         const subImgs = Array.isArray(body.subImages)
-          ? body.subImages.filter((s) => String(s).startsWith("data:image/")).slice(0, 3).map((s) => String(s).slice(0, 350000))
+          ? body.subImages.filter(validImg).slice(0, 3).map((s) => String(s).slice(0, 350000))
           : [];
 
         all.unshift({
