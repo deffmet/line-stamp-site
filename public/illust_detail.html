@@ -41,7 +41,16 @@
     -webkit-touch-callout:none;
     pointer-events:auto;
   }
+
+
+    .report-tri-btn{background:none;border:none;padding:2px 4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle}
+  .report-tri-btn:hover{opacity:0.8;transform:scale(1.08)}
+  .rep-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:999;align-items:center;justify-content:center;padding:16px}
+  .rep-overlay.active{display:flex}
+  .rep-modal{background:#fff;border:2px solid #ef9a9a;border-radius:16px;padding:20px;width:100%;max-width:440px;box-sizing:border-box}
+  .rep-modal select,.rep-modal input,.rep-modal textarea{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px;margin-top:4px}
 </style>
+
 
 
 
@@ -63,6 +72,34 @@
     <p style="text-align:center;color:#8d6e63;">読み込み中...</p>
   </div>
 </div>
+<div class="rep-overlay" id="reportModal">
+  <div class="rep-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 style="margin:0;color:#c62828;font-size:17px;">⚠️ 作品の違反通報</h3>
+      <button type="button" onclick="closeReportModal()" style="background:none;border:none;font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <form id="reportForm">
+      <label style="margin-top:4px;">違反カテゴリー（必須）</label>
+      <select id="repCategory" required>
+        <option value="">選択してください</option>
+        <option value="著作権侵害・無断転載">著作権侵害・無断転載・トレース</option>
+        <option value="センシティブ・不適切な表現">センシティブ・過度に性的・暴力的な表現</option>
+        <option value="スパム・不正誘導URL">スパム・詐欺・不正URLへの誘導</option>
+        <option value="なりすまし・誹謗中傷・その他">なりすまし・誹謗中傷・その他規約違反</option>
+      </select>
+      <label>通報内容の詳細（必須）</label>
+      <textarea id="repDetail" rows="4" placeholder="具体的な違反箇所や理由をご記入ください" required></textarea>
+      <label>控えメール送信先（会員ログイン時は自動入力）</label>
+      <input type="email" id="repEmail" placeholder="example@mail.com">
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button type="button" onclick="closeReportModal()" style="flex:1;background:#757575;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer;">キャンセル</button>
+        <button type="submit" id="repSubmitBtn" style="flex:2;background:#d93025;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer;">通報を送信する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  
 <script>
   var params = new URLSearchParams(location.search);
   var illustId = params.get("id");
@@ -205,20 +242,61 @@
       ? '<div class="tags-wrap">' + item.tags.map(function(t) { return '<a href="search.html?tag=' + encodeURIComponent(t) + '" class="tag-chip">#' + t.replace(/</g, "&lt;") + '</a>'; }).join("") + '</div>'
       : '';
 
+    // LINEスタンプ公式URL枠の生成（1枚目画像の青枠エリア）
+    var stampStatus = item.stampUrlStatus || "";
+    var stampUrl = item.stampUrl || "";
+    var stampBoxHtml = "";
+
+    if (stampStatus === "approved" && stampUrl) {
+      // 承認済み：全員に青リンク表示（入力不可）・本人だけ取り下げボタン表示
+      stampBoxHtml =
+        '<div style="flex:1;min-width:180px;background:#e3f2fd;border:1px solid #90caf9;border-radius:12px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px;overflow:hidden;">' +
+          '<a href="' + stampUrl.replace(/"/g, "&quot;") + '" target="_blank" rel="noopener" style="color:#1565c0;font-weight:bold;font-size:12px;text-decoration:underline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔗 LINEスタンプ購入ページへ ↗</a>' +
+          (isOwner ? '<button type="button" onclick="withdrawStampUrl()" style="background:#ef6c00;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:bold;cursor:pointer;white-space:nowrap;">取り下げ</button>' : '') +
+        '</div>';
+    } else if (isOwner) {
+      // 本人（未申請・審査中・不承認・取り下げ後）：URL入力＋自動チェッカー＋申請ボタン
+      var statusHint = stampStatus === "pending" ? "⏳ 現在審査中です（URL変更再申請も可）"
+        : stampStatus === "rejected" ? "❌ 前回の申請は不承認でした（別URLで再申請可）"
+        : stampStatus === "withdrawn" ? "⚠️ 取り下げ済み（別URLで再申請可）"
+        : "LINE STOREのスタンプ購入URLを入力";
+      stampBoxHtml =
+        '<div style="flex:1;min-width:200px;background:#fff8f0;border:1px solid #ffcc80;border-radius:12px;padding:6px 8px;">' +
+          '<div style="display:flex;gap:4px;align-items:center;">' +
+            '<input type="url" id="stampUrlInput" value="' + stampUrl.replace(/"/g, "&quot;") + '" oninput="checkLineStampUrl(this.value)" placeholder="https://line.me..." style="flex:1;min-width:0;padding:5px 8px;font-size:11px;border:1px solid #ffcc80;border-radius:6px;background:#fff;">' +
+            '<button type="button" id="stampUrlApplyBtn" disabled onclick="applyStampUrl()" style="background:#bdbdbd;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:bold;cursor:not-allowed;white-space:nowrap;">申請</button>' +
+          '</div>' +
+          '<div id="stampUrlCheckMsg" style="font-size:10px;color:#795548;margin-top:3px;">' + statusHint + '</div>' +
+        '</div>';
+    } else {
+      // 他会員・未ログイン（未承認時）：グレーアウト状態で入力不可
+      stampBoxHtml =
+        '<div style="flex:1;min-width:160px;background:#eeeeee;border:1px solid #d0d0d0;border-radius:12px;padding:7px 10px;color:#888;font-size:11px;font-weight:bold;text-align:center;user-select:none;">' +
+          '🔒 LINEスタンプURL（未公開・審査待ち）' +
+        '</div>';
+    }
+
     var statsBarHtml =
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px;padding-top:12px;border-top:1px solid #ffe0b2;">' +
+      '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin:14px 0 6px;padding-top:12px;border-top:1px solid #ffe0b2;">' +
         '<button type="button" id="likeToggleBtn" onclick="toggleLike()" style="background:#fff;border:1px solid #ffcc80;color:#5d4037;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:bold;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">' +
           '<span id="likeHeartIcon">🤍</span> いいね <span id="likeCountNum">' + Number(item.likes || 0) + '</span>' +
         '</button>' +
+        stampBoxHtml +
         '<div style="font-size:12px;color:#795548;background:#fff8f0;border:1px solid #ffe0b2;padding:5px 12px;border-radius:16px;font-weight:bold;">' +
           '👀 <span id="viewCountNum">' + Number(item.views || 0) + '</span>' +
         '</div>' +
       '</div>';
 
+    // 赤三角に白ビックリマークのSVGアイコン（2枚目画像の右上黒枠位置）
+    var reportTriSvg = '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12,2 23,21 1,21" fill="#d93025"/><rect x="11" y="8" width="2" height="7" fill="#ffffff"/><rect x="11" y="17" width="2" height="2" fill="#ffffff"/></svg>';
+
     card.innerHTML =
       '<div class="top-bar">' +
         '<a href="/my_page_' + encodeURIComponent(item.username) + '" class="author-link">👤 ' + item.username.replace(/</g, "&lt;") + ' さんのページへ</a>' +
-        '<span style="font-size:11px;color:#8d6e63;">投稿：' + item.date + '</span>' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+          '<button type="button" class="report-tri-btn" onclick="openReportModal()" title="この作品を通報する">' + reportTriSvg + '</button>' +
+          '<span style="font-size:11px;color:#8d6e63;">投稿：' + item.date + '</span>' +
+        '</div>' +
       '</div>' +
       (isOwner ? '<div style="text-align:right;margin-bottom:10px;"><button type="button" class="btn-edit" style="display:inline-block;" onclick="toggleEdit()">✏️ 編集する</button></div>' : '') +
       '<div class="main-img-wrap"><img src="' + item.mainImage + '" class="main-img" alt="メイン画像"></div>' +
@@ -227,6 +305,7 @@
       (item.description ? '<div class="illust-desc">' + item.description.replace(/</g, "&lt;") + '</div>' : '') +
       tagsHtml +
       statsBarHtml +
+
       (isOwner ?
         '<div class="edit-box" id="editBox">' +
           '<h3 style="margin:0 0 8px;color:#e65100;font-size:16px;">✏️ 投稿内容を編集する（100×100〜500×500px正方形のみ）</h3>' +
@@ -343,7 +422,112 @@ alert("⚠️ " + (typeof err === "string" ? err : "エラーが発生しまし�
 } finally {
 btn.disabled = false; btn.textContent = "変更を保存する";
 }
-}  loadDetail();
+}
+    // LINEスタンプ公式URL自動チェッカー
+  function isOfficialLineStampUrl(val) {
+    var s = String(val || "").trim();
+    return /^https:\/\/(store\.line\.me\/stickershop\/product\/|line\.me\/S\/sticker\/)[a-zA-Z0-9_\-\/\?\=\&\%]+$/i.test(s);
+  }
+
+  function checkLineStampUrl(val) {
+    var btn = document.getElementById("stampUrlApplyBtn");
+    var msg = document.getElementById("stampUrlCheckMsg");
+    if (!btn || !msg) return;
+    if (isOfficialLineStampUrl(val)) {
+      btn.disabled = false;
+      btn.style.background = "#06c755";
+      btn.style.cursor = "pointer";
+      msg.style.color = "#2e7d32";
+      msg.textContent = "✅ LINEスタンプ公式URLを確認しました！申請できます";
+    } else {
+      btn.disabled = true;
+      btn.style.background = "#bdbdbd";
+      btn.style.cursor = "not-allowed";
+      msg.style.color = "#c62828";
+      msg.textContent = val.trim() ? "⚠️ https://line.me... の公式URLのみ有効です" : "LINE STOREのスタンプ購入URLを入力";
+    }
+  }
+
+  async function applyStampUrl() {
+    var input = document.getElementById("stampUrlInput");
+    if (!input || !isOfficialLineStampUrl(input.value)) return;
+    if (!confirm("このLINEスタンプ公式URLを運営審査に申請しますか？")) return;
+    var btn = document.getElementById("stampUrlApplyBtn");
+    btn.disabled = true;
+    var res = await fetch("/api/illusts/stamp-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "apply", illustId: currentItem.id, uid: currentUser.uid, stampUrl: input.value.trim() })
+    });
+    if (res.ok) {
+      alert("LINEスタンプURLの審査申請を送信しました！運営承認後に公開されます。");
+      location.href = "illust_detail.html?id=" + encodeURIComponent(currentItem.id) + "&fresh=1";
+    } else {
+      alert("申請に失敗しました。");
+      btn.disabled = false;
+    }
+  }
+
+  async function withdrawStampUrl() {
+    if (!confirm("公開中のLINEスタンプURLを取り下げますか？（運営審査ページにも取り下げ報告が送信されます）")) return;
+    var res = await fetch("/api/illusts/stamp-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "withdraw", illustId: currentItem.id, uid: currentUser.uid })
+    });
+    if (res.ok) {
+      alert("URLを取り下げました。別の公式URLで再申請することも可能です。");
+      location.href = "illust_detail.html?id=" + encodeURIComponent(currentItem.id) + "&fresh=1";
+    }
+  }
+
+  // 通報ダイアログ制御＆送信（控えメール自動送信連動）
+  function openReportModal() {
+    var emailInput = document.getElementById("repEmail");
+    if (emailInput && currentUser && currentUser.email) {
+      emailInput.value = currentUser.email;
+    }
+    document.getElementById("reportModal").classList.add("active");
+  }
+
+  function closeReportModal() {
+    document.getElementById("reportModal").classList.remove("active");
+  }
+
+  document.getElementById("reportForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    if (!currentItem) return;
+    var btn = document.getElementById("repSubmitBtn");
+    btn.disabled = true; btn.textContent = "送信中...";
+    try {
+      var res = await fetch("/api/report-illust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          illustId: currentItem.id,
+          illustTitle: currentItem.title,
+          targetUid: currentItem.uid,
+          targetUsername: currentItem.username,
+          reporterUid: currentUser ? currentUser.uid : "未ログイン（" + getDeviceId() + "）",
+          reporterUsername: currentUser ? currentUser.username : "ゲスト",
+          reporterEmail: document.getElementById("repEmail").value.trim(),
+          category: document.getElementById("repCategory").value,
+          detail: document.getElementById("repDetail").value.trim()
+        })
+      });
+      if (res.ok) {
+        alert("ご協力のほどありがとうございます。\n通報を受け付け、控えメールを送信いたしました。");
+        document.getElementById("reportForm").reset();
+        closeReportModal();
+      } else {
+        alert("送信に失敗しました。時間をおいて再度お試しください。");
+      }
+    } finally {
+      btn.disabled = false; btn.textContent = "通報を送信する";
+    }
+  });
+
+  loadDetail();
 </script>
 </body>
 </html>
