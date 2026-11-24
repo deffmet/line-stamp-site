@@ -161,7 +161,7 @@ export class OnlineCounter {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
           list = list.filter((item) => String(item.id) !== String(body.id));
           await this.state.storage.put("short_ads", list);
-        }
+        
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
       }
 
