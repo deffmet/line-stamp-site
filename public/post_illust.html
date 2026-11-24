@@ -40,37 +40,39 @@
 <div class="container">
   <div class="card">
     <h2 class="section-title">新作スタンプイラストを投稿する</h2>
-    <form id="illustPostForm">
+       <form id="illustPostForm">
       <div style="display:none;"><input type="text" id="hpTrap" autocomplete="off"></div>
 
       <div class="form-group">
-        <label>メインスタンプ画像（370×370px / トップ新着＆一覧用）<span class="badge-req">必須</span></label>
+        <label>メインスタンプ画像（100px × 100px 〜 500px × 500px の正方形まで）<span class="badge-req">必須</span></label>
         <div class="main-upload-box">
           <input type="file" id="mainFile" accept="image/png,image/jpeg,image/webp" required>
-          <div style="font-size:11px;color:#795548;margin-top:6px;">※自動で370×370px（詳細・検索用500×500px基準）の正方形に綺麗に収まるよう最適化されます</div>
+          <span style="display:inline-block;font-size:12px;font-weight:bold;color:#e65100;margin-left:6px;">※100px 〜 500px の正方形まで</span>
+          <div style="font-size:11px;color:#795548;margin-top:6px;">※100×100px〜500×500pxの正方形画像のみ投稿可能に制限されます（容量軽量化処理付き）</div>
           <img id="mainPreview" class="main-preview" alt="メインプレビュー">
         </div>
       </div>
 
       <div class="form-group">
-        <label>サブスタンプ画像（最大3枚まで / 500×500px自動調整）<span class="badge-opt">任意</span></label>
-        <div class="sub-grid">
+        <label>サブスタンプ画像（最大3枚 / 100×100px〜500×500pxの正方形まで・メイン選択後に解放）<span class="badge-opt">任意</span></label>
+        <div class="sub-grid" id="subGridWrap" style="opacity:0.5;">
           <div class="sub-slot">
             <div>サブ 1</div>
-            <input type="file" id="subFile1" accept="image/png,image/jpeg,image/webp" style="width:100%;font-size:10px;margin-top:4px;">
+            <input type="file" id="subFile1" accept="image/png,image/jpeg,image/webp" disabled style="width:100%;font-size:10px;margin-top:4px;">
             <img id="subPrev1" class="sub-preview" alt="サブ1">
           </div>
           <div class="sub-slot">
             <div>サブ 2</div>
-            <input type="file" id="subFile2" accept="image/png,image/jpeg,image/webp" style="width:100%;font-size:10px;margin-top:4px;">
+            <input type="file" id="subFile2" accept="image/png,image/jpeg,image/webp" disabled style="width:100%;font-size:10px;margin-top:4px;">
             <img id="subPrev2" class="sub-preview" alt="サブ2">
           </div>
           <div class="sub-slot">
             <div>サブ 3</div>
-            <input type="file" id="subFile3" accept="image/png,image/jpeg,image/webp" style="width:100%;font-size:10px;margin-top:4px;">
+            <input type="file" id="subFile3" accept="image/png,image/jpeg,image/webp" disabled style="width:100%;font-size:10px;margin-top:4px;">
             <img id="subPrev3" class="sub-preview" alt="サブ3">
           </div>
         </div>
+        <div style="font-size:11px;color:#8d6e63;margin-top:4px;">※未選択のサブ枠には自動的に「Non_file.jpg」が設定されます</div>
       </div>
 
       <div class="form-group">
@@ -95,6 +97,10 @@
         ・投稿された画像は、当サイト「HookupStickers」内の新着欄・検索一覧・紹介ページにて公開されます。
       </div>
 
+      <div style="text-align:center;font-size:12px;font-weight:bold;color:#3e2723;margin-bottom:10px;">
+        ※投稿ボタンを押した時点で、<a href="terms.html" target="_blank" style="color:#e65100;">利用規約</a>に同意したものとみなされます。
+      </div>
+
       <button type="submit" class="btn-submit" id="postBtn">この内容でイラストを投稿する</button>
     </form>
   </div>
@@ -111,69 +117,106 @@
     currentUser = JSON.parse(saved);
   })();
 
-  function resizeSquareImage(file, size) {
+  // 100x100 〜 500x500 の正方形厳密チェック＋軽量WebP圧縮
+  function validateAndCompressSquare(file) {
     return new Promise(function(resolve, reject) {
       if (!file) return resolve("");
       var reader = new FileReader();
       reader.onload = function(ev) {
         var img = new Image();
         img.onload = function() {
+          var w = img.width, h = img.height;
+          if (w !== h) {
+            return reject("正方形の画像のみ投稿可能です（現在 " + w + "×" + h + "px）。縦横同じサイズにしてください。");
+          }
+          if (w < 100 || w > 500) {
+            return reject("画像サイズが規定外です（現在 " + w + "×" + h + "px）。100×100px 〜 500×500px の範囲にしてください。");
+          }
           var canvas = document.createElement("canvas");
-          canvas.width = size;
-          canvas.height = size;
+          canvas.width = w;
+          canvas.height = h;
           var ctx = canvas.getContext("2d");
-          ctx.clearRect(0, 0, size, size);
-          var ratio = Math.min(size / img.width, size / img.height);
-          var w = img.width * ratio;
-          var h = img.height * ratio;
-          ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-          resolve(canvas.toDataURL("image/webp", 0.85));
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/webp", 0.78));
         };
-        img.onerror = function() { reject("画像の読み込みに失敗しました"); };
+        img.onerror = function() { reject("画像の読み込みに失敗しました。"); };
         img.src = ev.target.result;
       };
-      reader.onerror = function() { reject("ファイルの読み込みに失敗しました"); };
       reader.readAsDataURL(file);
     });
   }
 
-  function bindPreview(inputId, imgId, size) {
-    document.getElementById(inputId).addEventListener("change", async function(e) {
-      var f = e.target.files && e.target.files.item(0);
-      var prev = document.getElementById(imgId);
-      if (!f) { prev.style.display = "none"; return; }
-      var dataUrl = await resizeSquareImage(f, size);
-      prev.src = dataUrl;
-      prev.style.display = "inline-block";
-    });
+  function setSubEnabled(enabled) {
+    var wrap = document.getElementById("subGridWrap");
+    wrap.style.opacity = enabled ? "1" : "0.5";
+    for (var i = 1; i <= 3; i++) {
+      var el = document.getElementById("subFile" + i);
+      el.disabled = !enabled;
+      if (!enabled) {
+        el.value = "";
+        document.getElementById("subPrev" + i).style.display = "none";
+      }
+    }
   }
 
-  bindPreview("mainFile", "mainPreview", 500);
-  bindPreview("subFile1", "subPrev1", 500);
-  bindPreview("subFile2", "subPrev2", 500);
-  bindPreview("subFile3", "subPrev3", 500);
+  document.getElementById("mainFile").addEventListener("change", async function(e) {
+    var f = e.target.files && e.target.files.item(0);
+    var prev = document.getElementById("mainPreview");
+    if (!f) {
+      prev.style.display = "none";
+      setSubEnabled(false);
+      return;
+    }
+    try {
+      var dataUrl = await validateAndCompressSquare(f);
+      prev.src = dataUrl;
+      prev.style.display = "inline-block";
+      setSubEnabled(true);
+    } catch (err) {
+      alert("⚠️ " + err);
+      e.target.value = "";
+      prev.style.display = "none";
+      setSubEnabled(false);
+    }
+  });
+
+  [1, 2, 3].forEach(function(idx) {
+    document.getElementById("subFile" + idx).addEventListener("change", async function(e) {
+      var f = e.target.files && e.target.files.item(0);
+      var prev = document.getElementById("subPrev" + idx);
+      if (!f) { prev.style.display = "none"; return; }
+      try {
+        var dataUrl = await validateAndCompressSquare(f);
+        prev.src = dataUrl;
+        prev.style.display = "inline-block";
+      } catch (err) {
+        alert("⚠️ サブ" + idx + "：" + err);
+        e.target.value = "";
+        prev.style.display = "none";
+      }
+    });
+  });
 
   document.getElementById("illustPostForm").addEventListener("submit", async function(e) {
     e.preventDefault();
     if (!currentUser) return;
-
     var mainF = document.getElementById("mainFile").files.item(0);
     var title = document.getElementById("illustTitle").value.trim();
-    if (!mainF || !title) {
-      alert("メイン画像と作品タイトルは必須です。");
-      return;
-    }
+    if (!mainF || !title) { alert("メイン画像と作品タイトルは必須です。"); return; }
 
     var btn = document.getElementById("postBtn");
-    btn.disabled = true;
-    btn.textContent = "画像を最適化して投稿中...";
+    btn.disabled = true; btn.textContent = "検証・軽量化して投稿中...";
 
     try {
-      var mainData = await resizeSquareImage(mainF, 500);
+      var mainData = await validateAndCompressSquare(mainF);
       var subs = [];
       for (var i = 1; i <= 3; i++) {
         var sf = document.getElementById("subFile" + i).files.item(0);
-        if (sf) subs.push(await resizeSquareImage(sf, 500));
+        if (sf) {
+          subs.push(await validateAndCompressSquare(sf));
+        } else {
+          subs.push("/Non_file.jpg");
+        }
       }
 
       var res = await fetch("/api/illusts", {
@@ -191,18 +234,13 @@
         })
       });
       var data = await res.json();
-      if (!res.ok || !data.ok) {
-        alert(data.error || "投稿に失敗しました。");
-        return;
-      }
-
+      if (!res.ok || !data.ok) { alert(data.error || "投稿に失敗しました。"); return; }
       alert("イラストを投稿しました！詳細ページへ移動します。");
       location.href = "illust_detail.html?id=" + encodeURIComponent(data.id);
     } catch (err) {
-      alert("投稿処理中にエラーが発生しました。");
+      alert("⚠️ " + (typeof err === "string" ? err : "投稿処理中にエラーが発生しました。"));
     } finally {
-      btn.disabled = false;
-      btn.textContent = "この内容でイラストを投稿する";
+      btn.disabled = false; btn.textContent = "この内容でイラストを投稿する";
     }
   });
 </script>
