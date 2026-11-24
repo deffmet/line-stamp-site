@@ -70,14 +70,21 @@
     });
   }
 
-  async function loadDetail() {
+   async function loadDetail() {
     var card = document.getElementById("detailCard");
     if (!illustId) { card.innerHTML = "<p>作品IDが指定されていません。</p>"; return; }
-    var res = await fetch("/api/illusts?id=" + encodeURIComponent(illustId));
+    var isFresh = params.get("fresh") === "1";
+    var fetchUrl = "/api/illusts?id=" + encodeURIComponent(illustId) + (isFresh ? "&_t=" + Date.now() : "");
+    var res = await fetch(fetchUrl);
     var item = await res.json();
+    if (isFresh && history.replaceState) {
+      history.replaceState(null, "", "illust_detail.html?id=" + encodeURIComponent(illustId));
+    }
     if (!item) { card.innerHTML = "<p>この作品は削除されたか存在しません。</p>"; return; }
     currentItem = item;
     document.title = item.title + " | HookupStickers";
+
+
 
     var isOwner = currentUser && currentUser.uid === item.uid;
     var rawSubs = Array.isArray(item.subImages) ? item.subImages : [];
@@ -169,8 +176,11 @@
         })
       });
       var d = await res.json();
-      if (res.ok && d.ok) { alert("更新しました！"); location.reload(); }
-      else { alert(d.error || "更新に失敗しました"); }
+      if (res.ok && d.ok) {
+        alert("更新しました！");
+        location.href = "illust_detail.html?id=" + encodeURIComponent(currentItem.id) + "&fresh=1";
+      }
+
     } catch (err) {
       alert("⚠️ " + (typeof err === "string" ? err : "エラーが発生しました"));
     } finally {
