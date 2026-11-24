@@ -223,18 +223,31 @@ export class OnlineCounter {
         return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
       }
     }
-     // 4-6. 会員イラスト投稿・編集・削除・検索・乱数キャッシュAPI（個別キー分散保存・過負荷＆ボット対策付き）
+         // 4-6. 会員イラスト投稿・編集・削除・検索・乱数キャッシュAPI（完全軽量インデックス＆個別キー分散保存）
     if (url.pathname.startsWith("/api/illusts")) {
       const now = Date.now();
       const validImg = (s) => String(s).startsWith("data:image/") || String(s) === "/Non_file.jpg";
+
+      // メタ配列から必要な件数だけメイン画像を並列復元するヘルパー
+      const attachMainImages = async (metaList, limitCount) => {
+        const sliced = metaList.slice(0, limitCount);
+        const items = await Promise.all(
+          sliced.map(async (m) => {
+            const full = await this.state.storage.get("illust_item_" + m.id);
+            return full ? { ...m, mainImage: full.mainImage } : null;
+          })
+        );
+        return items.filter(Boolean);
+      };
 
       // A. トップページ新着用（30分 or 60分の50%サイコロ乱数キャッシュ）
       if (url.pathname === "/api/illusts/recent" && request.method === "GET") {
         let cache = await this.state.storage.get("recent_illust_cache");
         if (!cache || now >= cache.nextUpdateAt) {
           const indexList = (await this.state.storage.get("illust_index")) || [];
+          const withImgs = await attachMainImages(indexList, 5);
           const intervalMs = Math.random() < 0.5 ? 30 * 60 * 1000 : 60 * 60 * 1000;
-          cache = { items: indexList.slice(0, 10), updatedAt: now, nextUpdateAt: now + intervalMs };
+          cache = { items: withImgs, updatedAt: now, nextUpdateAt: now + intervalMs };
           await this.state.storage.put("recent_illust_cache", cache);
         }
         return new Response(JSON.stringify(cache), {
@@ -246,12 +259,8 @@ export class OnlineCounter {
       if (request.method === "GET") {
         const id = url.searchParams.get("id");
         if (id) {
-          let item = await this.state.storage.get("illust_item_" + id);
-          if (!item) {
-            const legacy = (await this.state.storage.get("illusts")) || [];
-            item = legacy.find((i) => String(i.id) === String(id)) || null;
-          }
-          return new Response(JSON.stringify(item), {
+          const item = await this.state.storage.get("illust_item_" + id);
+          return new Response(JSON.stringify(item || null), {
             headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" },
           });
         }
@@ -259,9 +268,9 @@ export class OnlineCounter {
         const indexList = (await this.state.storage.get("illust_index")) || [];
         const author = url.searchParams.get("author");
         if (author) {
-          return new Response(JSON.stringify(indexList.filter((i) => i.username === author)), {
-            headers: { "Content-Type": "application/json" },
-          });
+          const filteredAuthor = indexList.filter((i) => i.username === author);
+          const withImgs = await attachMainImages(filteredAuthor, 50);
+          return new Response(JSON.stringify(withImgs), { headers: { "Content-Type": "application/json" } });
         }
 
         const q = (url.searchParams.get("q") || "").slice(0, 60).toLowerCase().trim();
@@ -278,112 +287,117 @@ export class OnlineCounter {
         });
 
         if (sort === "oldest") filtered = filtered.slice().reverse();
-        return new Response(JSON.stringify(filtered.slice(0, 120)), {
+        const withImgs = await attachMainImages(filtered, 60);
+        return new Response(JSON.stringify(withImgs), {
           headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
         });
       }
 
       // C. 新規投稿・本人編集・削除（POST）
       if (request.method === "POST") {
-        const body = await request.json().catch(() => ({}));
-        if (body.trap && String(body.trap).trim() !== "") {
-          return new Response(JSON.stringify({ ok: false, error: "不正アクセスを検知しました" }), { status: 403 });
-        }
-
-        let indexList = (await this.state.storage.get("illust_index")) || [];
-
-        if (body.action === "admin_delete") {
-          if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
-          indexList = indexList.filter((i) => String(i.id) !== String(body.id));
-          await this.state.storage.put("illust_index", indexList);
-          await this.state.storage.delete("illust_item_" + body.id);
-          await this.state.storage.delete("recent_illust_cache");
-          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
-        }
-
-        if (body.action === "user_delete") {
-          const target = indexList.find((i) => String(i.id) === String(body.id));
-          if (!target || target.uid !== String(body.uid)) {
-            return new Response(JSON.stringify({ ok: false, error: "削除権限がありません" }), { status: 403 });
+        try {
+          const body = await request.json();
+          if (body.trap && String(body.trap).trim() !== "") {
+            return new Response(JSON.stringify({ ok: false, error: "不正アクセスを検知しました" }), { status: 403 });
           }
-          indexList = indexList.filter((i) => String(i.id) !== String(body.id));
-          await this.state.storage.put("illust_index", indexList);
-          await this.state.storage.delete("illust_item_" + body.id);
-          await this.state.storage.delete("recent_illust_cache");
-          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
-        }
 
-        const uid = String(body.uid || "");
-        if (!uid) return new Response(JSON.stringify({ ok: false, error: "ログインが必要です" }), { status: 401 });
+          let indexList = (await this.state.storage.get("illust_index")) || [];
 
-        const cleanTitle = String(body.title || "").trim().slice(0, 60);
-        const cleanDesc = String(body.description || "").trim().slice(0, 1000);
-        const rawTags = Array.isArray(body.tags) ? body.tags : String(body.tags || "").split(/[\s,、#＃]+/);
-        const cleanTags = [...new Set(rawTags.map((t) => String(t).replace(/^[#＃]+/, "").trim().slice(0, 25)).filter(Boolean))].slice(0, 10);
-
-        if (body.action === "edit") {
-          const fullItem = await this.state.storage.get("illust_item_" + body.id);
-          if (!fullItem || fullItem.uid !== uid) {
-            return new Response(JSON.stringify({ ok: false, error: "編集権限がありません" }), { status: 403 });
-          }
-          if (!cleanTitle) return new Response(JSON.stringify({ ok: false, error: "タイトルは必須です" }), { status: 400 });
-          fullItem.title = cleanTitle;
-          fullItem.description = cleanDesc;
-          fullItem.tags = cleanTags;
-          if (body.mainImage && String(body.mainImage).startsWith("data:image/")) {
-            fullItem.mainImage = String(body.mainImage).slice(0, 110000);
-          }
-          if (Array.isArray(body.subImages)) {
-            fullItem.subImages = body.subImages.filter(validImg).slice(0, 3).map((s) => String(s).slice(0, 110000));
-          }
-          await this.state.storage.put("illust_item_" + body.id, fullItem);
-
-          const idxItem = indexList.find((i) => String(i.id) === String(body.id));
-          if (idxItem) {
-            idxItem.title = cleanTitle;
-            idxItem.tags = cleanTags;
-            idxItem.mainImage = fullItem.mainImage;
+          if (body.action === "admin_delete") {
+            if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+            indexList = indexList.filter((i) => String(i.id) !== String(body.id));
             await this.state.storage.put("illust_index", indexList);
+            await this.state.storage.delete("illust_item_" + body.id);
+            await this.state.storage.delete("recent_illust_cache");
+            return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
           }
+
+          if (body.action === "user_delete") {
+            const target = indexList.find((i) => String(i.id) === String(body.id));
+            if (!target || target.uid !== String(body.uid)) {
+              return new Response(JSON.stringify({ ok: false, error: "削除権限がありません" }), { status: 403 });
+            }
+            indexList = indexList.filter((i) => String(i.id) !== String(body.id));
+            await this.state.storage.put("illust_index", indexList);
+            await this.state.storage.delete("illust_item_" + body.id);
+            await this.state.storage.delete("recent_illust_cache");
+            return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+          }
+
+          const uid = String(body.uid || "");
+          if (!uid) return new Response(JSON.stringify({ ok: false, error: "ログインが必要です" }), { status: 401 });
+
+          const cleanTitle = String(body.title || "").trim().slice(0, 60);
+          const cleanDesc = String(body.description || "").trim().slice(0, 1000);
+          const rawTags = Array.isArray(body.tags) ? body.tags : String(body.tags || "").split(/[\s,、#＃]+/);
+          const cleanTags = [...new Set(rawTags.map((t) => String(t).replace(/^[#＃]+/, "").trim().slice(0, 25)).filter(Boolean))].slice(0, 10);
+
+          if (body.action === "edit") {
+            const fullItem = await this.state.storage.get("illust_item_" + body.id);
+            if (!fullItem || fullItem.uid !== uid) {
+              return new Response(JSON.stringify({ ok: false, error: "編集権限がありません" }), { status: 403 });
+            }
+            if (!cleanTitle) return new Response(JSON.stringify({ ok: false, error: "タイトルは必須です" }), { status: 400 });
+            fullItem.title = cleanTitle;
+            fullItem.description = cleanDesc;
+            fullItem.tags = cleanTags;
+            if (body.mainImage && String(body.mainImage).startsWith("data:image/")) {
+              fullItem.mainImage = String(body.mainImage);
+            }
+            if (Array.isArray(body.subImages)) {
+              fullItem.subImages = body.subImages.filter(validImg).slice(0, 3);
+            }
+            await this.state.storage.put("illust_item_" + body.id, fullItem);
+
+            const idxItem = indexList.find((i) => String(i.id) === String(body.id));
+            if (idxItem) {
+              idxItem.title = cleanTitle;
+              idxItem.tags = cleanTags;
+              await this.state.storage.put("illust_index", indexList);
+            }
+            await this.state.storage.delete("recent_illust_cache");
+            return new Response(JSON.stringify({ ok: true, id: fullItem.id }), { headers: { "Content-Type": "application/json" } });
+          }
+
+          if (!cleanTitle || !body.mainImage || !String(body.mainImage).startsWith("data:image/")) {
+            return new Response(JSON.stringify({ ok: false, error: "タイトルとメイン画像は必須です" }), { status: 400 });
+          }
+
+          const newId = now;
+          const safeSubs = Array.isArray(body.subImages)
+            ? body.subImages.filter(validImg).slice(0, 3)
+            : ["/Non_file.jpg", "/Non_file.jpg", "/Non_file.jpg"];
+
+          const itemObj = {
+            id: newId,
+            date: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
+            uid: uid,
+            username: String(body.username || "").slice(0, 40),
+            title: cleanTitle,
+            description: cleanDesc,
+            tags: cleanTags,
+            mainImage: String(body.mainImage),
+            subImages: safeSubs,
+          };
+
+          await this.state.storage.put("illust_item_" + newId, itemObj);
+          indexList.unshift({
+            id: newId,
+            date: itemObj.date,
+            uid: uid,
+            username: itemObj.username,
+            title: cleanTitle,
+            tags: cleanTags,
+          });
+          await this.state.storage.put("illust_index", indexList.slice(0, 300));
           await this.state.storage.delete("recent_illust_cache");
-          return new Response(JSON.stringify({ ok: true, id: fullItem.id }), { headers: { "Content-Type": "application/json" } });
+          return new Response(JSON.stringify({ ok: true, id: newId }), { headers: { "Content-Type": "application/json" } });
+        } catch (err) {
+          return new Response(JSON.stringify({ ok: false, error: "サーバーエラー: " + err.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
         }
-
-        if (!cleanTitle || !body.mainImage || !String(body.mainImage).startsWith("data:image/")) {
-          return new Response(JSON.stringify({ ok: false, error: "タイトルとメイン画像は必須です" }), { status: 400 });
-        }
-
-        const newId = now;
-        const safeMain = String(body.mainImage).slice(0, 110000);
-        const safeSubs = Array.isArray(body.subImages)
-          ? body.subImages.filter(validImg).slice(0, 3).map((s) => String(s).slice(0, 110000))
-          : ["/Non_file.jpg", "/Non_file.jpg", "/Non_file.jpg"];
-
-        const itemObj = {
-          id: newId,
-          date: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
-          uid: uid,
-          username: String(body.username || "").slice(0, 40),
-          title: cleanTitle,
-          description: cleanDesc,
-          tags: cleanTags,
-          mainImage: safeMain,
-          subImages: safeSubs,
-        };
-
-        await this.state.storage.put("illust_item_" + newId, itemObj);
-        indexList.unshift({
-          id: newId,
-          date: itemObj.date,
-          uid: uid,
-          username: itemObj.username,
-          title: cleanTitle,
-          tags: cleanTags,
-          mainImage: safeMain,
-        });
-        await this.state.storage.put("illust_index", indexList.slice(0, 150));
-        await this.state.storage.delete("recent_illust_cache");
-        return new Response(JSON.stringify({ ok: true, id: newId }), { headers: { "Content-Type": "application/json" } });
       }
     }
 
