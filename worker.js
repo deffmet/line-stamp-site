@@ -224,7 +224,12 @@ export class OnlineCounter {
       }
     }
          // 4-6. 会員イラスト投稿・編集・削除・検索・乱数キャッシュAPI（完全軽量インデックス＆個別キー分散保存）
-    if (url.pathname.startsWith("/api/illusts")) {
+    // 4-6. 会員イラスト投稿・編集・削除・検索・乱数キャッシュAPI
+    if (
+      url.pathname === "/api/illusts" ||
+      url.pathname === "/api/illusts/recent" ||
+      url.pathname === "/api/illusts/interact"
+    ) {
       const now = Date.now();
       const validImg = (s) => String(s).startsWith("data:image/") || String(s) === "/Non_file.jpg";
 
@@ -587,6 +592,10 @@ export class OnlineCounter {
           await this.state.storage.put("illust_reports", list);
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
+             if (!body.illustId || !body.category || !body.detail) {
+       return new Response(JSON.stringify({ ok: false, error: "必須項目が不足しています" }), { status: 400 });
+     }
+
 
         const reportObj = {
           id: Date.now(),
@@ -872,7 +881,8 @@ export default {
 
         // 通報者のメールアドレスがある場合は控えメールを自動送信
         const toEmail = String(body.reporterEmail || "").trim();
-        if (toEmail && typeof RESEND_API_KEY !== "undefined" && RESEND_API_KEY) {
+        const apiKey = (env && env.RESEND_API_KEY) || (typeof RESEND_API_KEY !== "undefined" ? RESEND_API_KEY : "");
+        if (toEmail && apiKey) {
           const mailText =
             `${body.reporterUsername || "会員"} 様\n\n` +
             `HookupStickers への違反通報を受け付けました。ご協力ありがとうございます。\n` +
@@ -884,10 +894,11 @@ export default {
             `----------------------------------------\n\n` +
             `※本メールは送信専用です。`;
 
-          await fetch("https://resend.com", {
+                  var resendEndpoint = "https://" + "api.resend.com" + "/emails";
+          await fetch(resendEndpoint, {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${RESEND_API_KEY}`,
+              "Authorization": `Bearer ${apiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
@@ -897,12 +908,15 @@ export default {
               text: mailText,
             }),
           }).catch(() => {});
+
         }
+
         return new Response(JSON.stringify(saveData), { headers: { "Content-Type": "application/json" } });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500 });
       }
     }
+
 
 
     // WebSocketまたはデータAPIへのアクセス
