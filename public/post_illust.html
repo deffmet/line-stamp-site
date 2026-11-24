@@ -238,8 +238,9 @@
       alert("イラストを投稿しました！詳細ページへ移動します。");
       location.href = "illust_detail.html?id=" + encodeURIComponent(data.id);
     } catch (err) {
-      alert("⚠️ " + (typeof err === "string" ? err : "投稿処理中にエラーが発生しました。"));
+      alert("⚠️ " + (err && err.message ? err.message : String(err)));
     } finally {
+
       btn.disabled = false; btn.textContent = "この内容でイラストを投稿する";
     }
   });
