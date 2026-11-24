@@ -223,7 +223,156 @@ export class OnlineCounter {
         return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
       }
     }
+    // 4-6. 会員イラスト投稿・編集・削除・検索・乱数キャッシュAPI（過負荷＆ボット対策付き）
+    if (url.pathname.startsWith("/api/illusts")) {
+      const now = Date.now();
 
+      // A. トップページ新着用（30分 or 60分の50%サイコロ乱数キャッシュ）
+      if (url.pathname === "/api/illusts/recent" && request.method === "GET") {
+        let cache = await this.state.storage.get("recent_illust_cache");
+        if (!cache || now >= cache.nextUpdateAt) {
+          const all = (await this.state.storage.get("illusts")) || [];
+          const slim = all.slice(0, 10).map(({ subImages, ...mainOnly }) => mainOnly);
+          const intervalMs = Math.random() < 0.5 ? 30 * 60 * 1000 : 60 * 60 * 1000;
+          cache = { items: slim, updatedAt: now, nextUpdateAt: now + intervalMs };
+          await this.state.storage.put("recent_illust_cache", cache);
+        }
+        return new Response(JSON.stringify(cache), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=300",
+          },
+        });
+      }
+
+      // B. 一覧・検索・詳細・会員別取得（GET）
+      if (request.method === "GET") {
+        const all = (await this.state.storage.get("illusts")) || [];
+        const id = url.searchParams.get("id");
+        if (id) {
+          const item = all.find((i) => String(i.id) === String(id));
+          return new Response(JSON.stringify(item || null), {
+            headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" },
+          });
+        }
+        const author = url.searchParams.get("author");
+        if (author) {
+          const byAuthor = all.filter((i) => i.username === author).map(({ subImages, ...rest }) => rest);
+          return new Response(JSON.stringify(byAuthor), { headers: { "Content-Type": "application/json" } });
+        }
+        // 検索・ソート（メイン画像のみ返して通信量節約）
+        const q = (url.searchParams.get("q") || "").slice(0, 60).toLowerCase().trim();
+        const tag = (url.searchParams.get("tag") || "").slice(0, 40).replace(/^#/, "").toLowerCase().trim();
+        const sort = url.searchParams.get("sort") || "newest";
+
+        let filtered = all.filter((item) => {
+          const matchQ = !q ||
+            (item.title && item.title.toLowerCase().includes(q)) ||
+            (item.username && item.username.toLowerCase().includes(q)) ||
+            (item.tags && item.tags.some((t) => t.toLowerCase().includes(q)));
+          const matchTag = !tag || (item.tags && item.tags.some((t) => t.toLowerCase() === tag));
+          return matchQ && matchTag;
+        });
+
+        if (sort === "oldest") filtered = filtered.slice().reverse();
+        const result = filtered.slice(0, 120).map(({ subImages, ...rest }) => rest);
+        return new Response(JSON.stringify(result), {
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
+        });
+      }
+
+      // C. 新規投稿・本人編集・削除（POST：連投制限＆ボット罠＆サイズ検証）
+      if (request.method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        if (body.trap && String(body.trap).trim() !== "") {
+          return new Response(JSON.stringify({ ok: false, error: "不正アクセスを検知しました" }), { status: 403 });
+        }
+
+        let all = (await this.state.storage.get("illusts")) || [];
+
+        // 管理者による強制削除（問い合わせ削除依頼対応）
+        if (body.action === "admin_delete") {
+          if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+          all = all.filter((i) => String(i.id) !== String(body.id));
+          await this.state.storage.put("illusts", all);
+          await this.state.storage.delete("recent_illust_cache");
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        // 投稿者本人による削除
+        if (body.action === "user_delete") {
+          const target = all.find((i) => String(i.id) === String(body.id));
+          if (!target || target.uid !== String(body.uid)) {
+            return new Response(JSON.stringify({ ok: false, error: "削除権限がありません" }), { status: 403 });
+          }
+          all = all.filter((i) => String(i.id) !== String(body.id));
+          await this.state.storage.put("illusts", all);
+          await this.state.storage.delete("recent_illust_cache");
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        // 連投スパム防御（同一UIDから30秒以内の連続投稿・編集をブロック）
+        const uid = String(body.uid || "");
+        if (!uid) return new Response(JSON.stringify({ ok: false, error: "ログインが必要です" }), { status: 401 });
+        const rateMap = (await this.state.storage.get("illust_rate_map")) || {};
+        if (rateMap[uid] && now - rateMap[uid] < 30 * 1000) {
+          return new Response(JSON.stringify({ ok: false, error: "連続操作を検知しました。30秒ほど待ってから再度お試しください。" }), { status: 429 });
+        }
+        rateMap[uid] = now;
+        await this.state.storage.put("illust_rate_map", rateMap);
+
+        const cleanTitle = String(body.title || "").trim().slice(0, 60);
+        const cleanDesc = String(body.description || "").trim().slice(0, 1000);
+        const rawTags = Array.isArray(body.tags) ? body.tags : String(body.tags || "").split(/[\s,、#＃]+/);
+        const cleanTags = [...new Set(rawTags.map((t) => String(t).replace(/^[#＃]+/, "").trim().slice(0, 25)).filter(Boolean))].slice(0, 10);
+
+        // 本人による編集更新
+        if (body.action === "edit") {
+          const target = all.find((i) => String(i.id) === String(body.id));
+          if (!target || target.uid !== uid) {
+            return new Response(JSON.stringify({ ok: false, error: "編集権限がありません" }), { status: 403 });
+          }
+          if (!cleanTitle) return new Response(JSON.stringify({ ok: false, error: "タイトルは必須です" }), { status: 400 });
+          target.title = cleanTitle;
+          target.description = cleanDesc;
+          target.tags = cleanTags;
+          if (body.mainImage && String(body.mainImage).startsWith("data:image/")) {
+            target.mainImage = String(body.mainImage).slice(0, 350000);
+          }
+          if (Array.isArray(body.subImages)) {
+            target.subImages = body.subImages.filter((s) => String(s).startsWith("data:image/")).slice(0, 3).map((s) => String(s).slice(0, 350000));
+          }
+          target.updatedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          await this.state.storage.put("illusts", all);
+          await this.state.storage.delete("recent_illust_cache");
+          return new Response(JSON.stringify({ ok: true, id: target.id }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        // 新規投稿
+        if (!cleanTitle || !body.mainImage || !String(body.mainImage).startsWith("data:image/")) {
+          return new Response(JSON.stringify({ ok: false, error: "タイトルとメイン画像は必須です" }), { status: 400 });
+        }
+        const newId = now;
+        const subImgs = Array.isArray(body.subImages)
+          ? body.subImages.filter((s) => String(s).startsWith("data:image/")).slice(0, 3).map((s) => String(s).slice(0, 350000))
+          : [];
+
+        all.unshift({
+          id: newId,
+          date: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
+          uid: uid,
+          username: String(body.username || "").slice(0, 40),
+          title: cleanTitle,
+          description: cleanDesc,
+          tags: cleanTags,
+          mainImage: String(body.mainImage).slice(0, 350000),
+          subImages: subImgs,
+        });
+        await this.state.storage.put("illusts", all.slice(0, 500));
+        await this.state.storage.delete("recent_illust_cache");
+        return new Response(JSON.stringify({ ok: true, id: newId }), { headers: { "Content-Type": "application/json" } });
+      }
+    }
 
     // 5. リアルタイム閲覧人数（WebSocket）
     const webSocketPair = new WebSocketPair();
@@ -473,19 +622,21 @@ export default {
 
 
     // WebSocketまたはデータAPIへのアクセス
- if (
-   url.pathname === "/ws" ||
-   url.pathname === "/api/contact" ||
-   url.pathname === "/api/inquiries" ||
-   url.pathname === "/api/save-user" ||
-   url.pathname === "/api/users" ||
-   url.pathname === "/api/delete-user" ||
-   url.pathname === "/api/video-tap" ||
-   url.pathname === "/api/short-ads" ||
-   url.pathname === "/api/plan-requests"
- ) {
-   return stub.fetch(request);
- }
+    if (
+      url.pathname === "/ws" ||
+      url.pathname === "/api/contact" ||
+      url.pathname === "/api/inquiries" ||
+      url.pathname === "/api/save-user" ||
+      url.pathname === "/api/users" ||
+      url.pathname === "/api/delete-user" ||
+      url.pathname === "/api/video-tap" ||
+      url.pathname === "/api/short-ads" ||
+      url.pathname === "/api/plan-requests" ||
+      url.pathname.startsWith("/api/illusts")
+    ) {
+      return stub.fetch(request);
+    }
+
 
 
 
@@ -679,20 +830,60 @@ export default {
             </div>
           `).join("") + `<script>async function deletePlanReq(id){if(!confirm("この企画アイデアを削除しますか？"))return;const r=await fetch("/api/plan-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete",key:"${ADMIN_KEY}",id:id})});if(r.ok)location.reload();}</script>`;
 
+      const allIllusts = await (await stub.fetch(new Request("https://dummy/api/illusts"))).json();
+      const adminIllustsHtml = allIllusts.length === 0
+        ? "<p style='font-size:13px;color:#666;'>まだ投稿されたイラストはありません。</p>"
+        : allIllusts.map(il => `
+            <div class="admin-illust-card" data-kw="${(il.title + " " + il.username + " " + (il.tags || []).join(" ") + " " + il.id).toLowerCase().replace(/"/g, "&quot;")}" style="background:#fff;border:1px solid #ffcc80;border-radius:10px;padding:10px;display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+              <img src="${il.mainImage}" style="width:64px;height:64px;object-fit:contain;border-radius:8px;border:1px solid #eee;background:#fffdf9;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:11px;color:#888;">ID: ${il.id} ｜ 投稿：${il.date}</div>
+                <div style="font-weight:bold;font-size:14px;color:#2b1d12;">${il.title.replace(/</g, "&lt;")}</div>
+                <div style="font-size:12px;color:#555;">投稿者：${il.username.replace(/</g, "&lt;")}</div>
+              </div>
+              <button type="button" onclick="adminDeleteIllust('${il.id}', '${il.title.replace(/'/g, "\\'")}')" style="background:#c62828;color:#fff;border:none;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;white-space:nowrap;">🗑️ 強制削除</button>
+            </div>
+          `).join("");
+
+      const adminIllustBoxHtml = `
+        <div style="background:#fff8f0;border:2px solid #ffcc80;border-radius:12px;padding:16px;margin-bottom:24px;">
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;">
+            <h2 style="margin:0;color:#e65100;font-size:17px;">🎨 投稿イラスト検索・削除管理（全${allIllusts.length}件）</h2>
+            <input type="text" id="adminIllustSearch" oninput="filterAdminIllusts()" placeholder="作品名・会員名・タグ・IDで検索" style="padding:7px 10px;border-radius:8px;border:1px solid #ffcc80;font-size:12px;width:210px;">
+          </div>
+          <div style="max-height:360px;overflow-y:auto;">${adminIllustsHtml}</div>
+        </div>
+        <script>
+          function filterAdminIllusts() {
+            const kw = document.getElementById("adminIllustSearch").value.toLowerCase().trim();
+            document.querySelectorAll(".admin-illust-card").forEach(c => {
+              c.style.display = (!kw || c.dataset.kw.includes(kw)) ? "flex" : "none";
+            });
+          }
+          async function adminDeleteIllust(id, title) {
+            if (!confirm("イラスト「" + title + "」を完全に削除しますか？（この操作は取り消せません）")) return;
+            const r = await fetch("/api/illusts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "admin_delete", key: "${ADMIN_KEY}", id: id })
+            });
+            if (r.ok) { alert("削除しました！"); location.reload(); }
+          }
+        </script>
+      `;
 
       return new Response(
-        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title><link rel="icon" href="/icon.png?v=5" type="image/png"></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;">${latestNoticeHtml}${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><hr style="margin:30px 0;"><h2>💡 企画依頼アイデアBOX（${planList.length}件）</h2>${plansHtml}<h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title><link rel="icon" href="/icon.png?v=5" type="image/png"></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;">${latestNoticeHtml}${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><h2>💡 企画依頼アイデアBOX（${planList.length}件）</h2>${plansHtml}<hr style="margin:30px 0;">${adminIllustBoxHtml}<h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
-
-
-
     }
+
     // ★会員専用ページ（URL: /my_page_会員の名前）
     if (url.pathname.startsWith("/my_page_")) {
       const targetName = decodeURIComponent(url.pathname.replace("/my_page_", "")).trim();
       const users = await (await stub.fetch(new Request(`https://dummy/api/users?key=${ADMIN_KEY}`))).json();
       const member = users.find((u) => u.username === targetName);
+
 
       if (!member) {
         return new Response(
