@@ -314,12 +314,14 @@ img, video {
     <button type="button" class="drawer-close" id="closeDrawerBtn">×</button>
   </div>
   <ul class="drawer-menu">
-    <li><button type="button" class="drawer-item disabled" onclick="alert('スタンプイラスト機能は現在準備中です。')">🎨 スタンプイラスト（準備中）</button></li>
-     <li><a href="login.html" id="drawerShortAdLink" class="drawer-item" onclick="handleShortAdClick(event)">🎬 ショート動画を掲載する</a></li>
-    <li><button type="button" class="drawer-item disabled" onclick="alert('掲載主様ダッシュボードは現在準備中です。')">📊 掲載主様ダッシュボード（準備中）</button></li>
+    <li><button type="button" class="drawer-item disabled" onclick="alert('現在準備中です。')">🗒️ お知らせ（準備中）</button></li>
+    <li><button type="button" class="drawer-item disabled" onclick="alert('現在準備中です。')">🎨 スタンプイラスト投稿（準備中）</button></li>
+    <li id="drawerMyPageItem" style="display:none;"><a href="#" class="drawer-item" id="drawerMyPageLink" style="color:#e65100;">🏠 会員専用ページ</a></li>
+    <li><a href="login.html" id="drawerShortAdLink" class="drawer-item" onclick="handleShortAdClick(event)">🎬 ショート動画を掲載する</a></li>
+    <li><a href="plan_request.html" class="drawer-item">💡 企画依頼</a></li>
+    <li style="margin-top:24px;border-top:1px solid #ffe0b2;padding-top:8px;"></li>
     <li id="drawerLogoutItem" style="display:none;"><button type="button" class="drawer-item logout" id="drawerLogoutBtn">🚪 ログアウト</button></li>
     <li><button type="button" class="drawer-item" id="drawerContactBtn">✉️ 問い合わせ</button></li>
-    <li id="drawerMyPageItem" style="display:none;"><a href="#" class="drawer-item" id="drawerMyPageLink" style="color:#06c755;">🏠 会員専用ページ</a></li>
 
   </ul>
 </nav>
@@ -824,6 +826,7 @@ document.addEventListener("dragstart", (e) => {
   
 </body>
 </html>
+
 
 
 
