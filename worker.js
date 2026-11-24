@@ -239,6 +239,66 @@ export class OnlineCounter {
         );
         return items.filter(Boolean);
       };
+      // ★閲覧数（1端末1日1回）＆いいね（手動トグル式・取り消し対応）API
+      if (url.pathname === "/api/illusts/interact" && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const targetId = String(body.id || "");
+          const action = String(body.action || "");
+          const deviceId = String(body.deviceId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+
+          if (!targetId || !deviceId || deviceId.length < 8) {
+            return new Response(JSON.stringify({ ok: false, error: "不正なリクエストです" }), { status: 400 });
+          }
+
+          const fullItem = await this.state.storage.get("illust_item_" + targetId);
+          if (!fullItem) {
+            return new Response(JSON.stringify({ ok: false, error: "作品が見つかりません" }), { status: 404 });
+          }
+
+          fullItem.views = Number(fullItem.views || 0);
+          fullItem.likes = Number(fullItem.likes || 0);
+
+          if (action === "view") {
+            const todayJst = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" });
+            const viewKey = "v_" + targetId + "_" + deviceId + "_" + todayJst;
+            const alreadyViewed = await this.state.storage.get(viewKey);
+            if (!alreadyViewed) {
+              fullItem.views += 1;
+              await this.state.storage.put(viewKey, 1);
+              await this.state.storage.put("illust_item_" + targetId, fullItem);
+            }
+            const likeKey = "l_" + targetId + "_" + deviceId;
+            const liked = Boolean(await this.state.storage.get(likeKey));
+            return new Response(JSON.stringify({ ok: true, views: fullItem.views, likes: fullItem.likes, liked: liked }), {
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+
+          if (action === "like") {
+            const likeKey = "l_" + targetId + "_" + deviceId;
+            const alreadyLiked = await this.state.storage.get(likeKey);
+            let liked = false;
+            if (alreadyLiked) {
+              fullItem.likes = Math.max(0, fullItem.likes - 1);
+              await this.state.storage.delete(likeKey);
+              liked = false;
+            } else {
+              fullItem.likes += 1;
+              await this.state.storage.put(likeKey, 1);
+              liked = true;
+            }
+            await this.state.storage.put("illust_item_" + targetId, fullItem);
+            return new Response(JSON.stringify({ ok: true, views: fullItem.views, likes: fullItem.likes, liked: liked }), {
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+
+          return new Response(JSON.stringify({ ok: false }), { status: 400 });
+        } catch (err) {
+          return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500 });
+        }
+      }
 
       // A. トップページ新着用（30分 or 60分の50%サイコロ乱数キャッシュ）
       if (url.pathname === "/api/illusts/recent" && request.method === "GET") {
