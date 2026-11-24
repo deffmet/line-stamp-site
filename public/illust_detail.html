@@ -44,8 +44,12 @@
 
 <div class="header">
   <h1 class="header-title">🎨 スタンプ作品詳細</h1>
-  <a href="index.html" class="back-btn">← トップへ戻る</a>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a href="search.html" id="backToSearchBtn" class="back-btn" style="background:#e65100;">🔍 スタンプ検索に戻る</a>
+    <a href="index.html" class="back-btn">← トップへ戻る</a>
+  </div>
 </div>
+
 
 <div class="container">
   <div class="card" id="detailCard">
@@ -58,6 +62,31 @@
   var currentUser = null;
   try { currentUser = JSON.parse(localStorage.getItem("site_user") || "null"); } catch (e) {}
   var currentItem = null;
+
+  // 端末固有IDの取得・生成（1日1回閲覧・いいね重複防止用）
+  function getDeviceId() {
+    var did = localStorage.getItem("hs_device_id");
+    if (!did) {
+      did = "dev_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem("hs_device_id", did);
+    }
+    return did;
+  }
+
+  // 「🔍 スタンプ検索に戻る」の2経路リンク設定
+  (function setupBackToSearch() {
+    var btn = document.getElementById("backToSearchBtn");
+    if (!btn) return;
+    var fromSearch = params.get("from_search");
+    if (fromSearch && fromSearch !== "1") {
+      btn.href = "search.html?" + fromSearch;
+    } else if (fromSearch === "1") {
+      btn.href = "search.html";
+    } else {
+      var savedSearch = sessionStorage.getItem("last_illust_search");
+      btn.href = savedSearch ? "search.html?" + savedSearch : "search.html";
+    }
+  })();
 
   function validateAndCompressSquare(file) {
     return new Promise(function(resolve, reject) {
@@ -80,7 +109,62 @@
     });
   }
 
-   async function loadDetail() {
+  async function recordViewAndSyncStats(id) {
+    try {
+      var res = await fetch("/api/illusts/interact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "view", id: id, deviceId: getDeviceId() })
+      });
+      var d = await res.json();
+      if (d && d.ok) {
+        var vEl = document.getElementById("viewCountNum");
+        var lEl = document.getElementById("likeCountNum");
+        var lBtn = document.getElementById("likeToggleBtn");
+        if (vEl) vEl.textContent = d.views;
+        if (lEl) lEl.textContent = d.likes;
+        if (lBtn) updateLikeButtonStyle(lBtn, d.liked);
+      }
+    } catch (e) {}
+  }
+
+  function updateLikeButtonStyle(btn, liked) {
+    var icon = document.getElementById("likeHeartIcon");
+    if (liked) {
+      btn.style.background = "#ffebee";
+      btn.style.borderColor = "#e53935";
+      btn.style.color = "#c62828";
+      if (icon) icon.textContent = "❤️";
+    } else {
+      btn.style.background = "#fff";
+      btn.style.borderColor = "#ffcc80";
+      btn.style.color = "#5d4037";
+      if (icon) icon.textContent = "🤍";
+    }
+  }
+
+  async function toggleLike() {
+    if (!currentItem) return;
+    var btn = document.getElementById("likeToggleBtn");
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try {
+      var res = await fetch("/api/illusts/interact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "like", id: currentItem.id, deviceId: getDeviceId() })
+      });
+      var d = await res.json();
+      if (d && d.ok) {
+        document.getElementById("likeCountNum").textContent = d.likes;
+        updateLikeButtonStyle(btn, d.liked);
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function loadDetail() {
     var card = document.getElementById("detailCard");
     if (!illustId) { card.innerHTML = "<p>作品IDが指定されていません。</p>"; return; }
     var isFresh = params.get("fresh") === "1";
@@ -93,8 +177,6 @@
     if (!item) { card.innerHTML = "<p>この作品は削除されたか存在しません。</p>"; return; }
     currentItem = item;
     document.title = item.title + " | HookupStickers";
-
-
 
     var isOwner = currentUser && currentUser.uid === item.uid;
     var rawSubs = Array.isArray(item.subImages) ? item.subImages : [];
@@ -112,6 +194,16 @@
       ? '<div class="tags-wrap">' + item.tags.map(function(t) { return '<a href="search.html?tag=' + encodeURIComponent(t) + '" class="tag-chip">#' + t.replace(/</g, "&lt;") + '</a>'; }).join("") + '</div>'
       : '';
 
+    var statsBarHtml =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px;padding-top:12px;border-top:1px solid #ffe0b2;">' +
+        '<button type="button" id="likeToggleBtn" onclick="toggleLike()" style="background:#fff;border:1px solid #ffcc80;color:#5d4037;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:bold;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">' +
+          '<span id="likeHeartIcon">🤍</span> いいね <span id="likeCountNum">' + Number(item.likes || 0) + '</span>' +
+        '</button>' +
+        '<div style="font-size:12px;color:#795548;background:#fff8f0;border:1px solid #ffe0b2;padding:5px 12px;border-radius:16px;font-weight:bold;">' +
+          '👀 <span id="viewCountNum">' + Number(item.views || 0) + '</span>' +
+        '</div>' +
+      '</div>';
+
     card.innerHTML =
       '<div class="top-bar">' +
         '<a href="/my_page_' + encodeURIComponent(item.username) + '" class="author-link">👤 ' + item.username.replace(/</g, "&lt;") + ' さんのページへ</a>' +
@@ -123,7 +215,8 @@
       '<h2 class="illust-title">' + item.title.replace(/</g, "&lt;") + '</h2>' +
       (item.description ? '<div class="illust-desc">' + item.description.replace(/</g, "&lt;") + '</div>' : '') +
       tagsHtml +
-            (isOwner ?
+      statsBarHtml +
+      (isOwner ?
         '<div class="edit-box" id="editBox">' +
           '<h3 style="margin:0 0 8px;color:#e65100;font-size:16px;">✏️ 投稿内容を編集する（100×100〜500×500px正方形のみ）</h3>' +
           '<label>作品タイトル（必須）</label>' +
@@ -158,90 +251,89 @@
           '</div>' +
           '<button type="button" class="btn-save" id="saveEditBtn" onclick="saveEdit()">変更を保存する</button>' +
         '</div>' : '');
+
+    recordViewAndSyncStats(item.id);
   }
 
   async function previewEditMain(input) {
     var f = input.files && input.files.item(0);
-    var st = document.getElementById("editMainStatus");
-    if (!f) { st.textContent = "画像未選択"; return; }
-    try {
-      await validateAndCompressSquare(f);
-      st.textContent = f.name;
-    } catch (err) {
-      alert("⚠️ " + err);
-      input.value = "";
-      st.textContent = "画像未選択";
-    }
-  }
-
-  async function previewEditSub(idx, input) {
-    var f = input.files && input.files.item(0);
-    if (!f) return;
-    try {
-      var url = await validateAndCompressSquare(f);
-      document.getElementById("editSubPrev" + idx).src = url;
-    } catch (err) {
-      alert("⚠️ サブ" + idx + "：" + err);
-      input.value = "";
-    }
-  }
-
-
-  function toggleEdit() {
-    var box = document.getElementById("editBox");
-    if (!box) return;
-    box.style.display = "block";
-    box.scrollIntoView({ behavior: "smooth", block: "start" });
-    setTimeout(function() {
-      var desc = document.getElementById("editDesc");
-      if (desc) desc.focus();
-    }, 450);
-  }
-
-  async function saveEdit() {
-    var btn = document.getElementById("saveEditBtn");
-    var newTitle = document.getElementById("editTitle").value.trim();
-    if (!newTitle) { alert("タイトルは必須です"); return; }
-    btn.disabled = true; btn.textContent = "検証・保存中...";
-    try {
-      var f = document.getElementById("editMainFile").files.item(0);
-      var newImg = f ? await validateAndCompressSquare(f) : "";
-
-      var curSubs = Array.isArray(currentItem.subImages) ? currentItem.subImages.slice() : ["/Non_file.jpg", "/Non_file.jpg", "/Non_file.jpg"];
-      while (curSubs.length < 3) curSubs.push("/Non_file.jpg");
-      for (var i = 1; i <= 3; i++) {
-        var sf = document.getElementById("editSub" + i).files.item(0);
-        if (sf) curSubs[i - 1] = await validateAndCompressSquare(sf);
-      }
-
-      var res = await fetch("/api/illusts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "edit",
-          id: currentItem.id,
-          uid: currentUser.uid,
-          title: newTitle,
-          description: document.getElementById("editDesc").value,
-          tags: document.getElementById("editTags").value,
-          mainImage: newImg,
-          subImages: curSubs
-        })
-      });
-      var d = await res.json();
-      if (res.ok && d.ok) {
-        alert("更新しました！");
-        location.href = "illust_detail.html?id=" + encodeURIComponent(currentItem.id) + "&fresh=1";
-      }
-
-    } catch (err) {
-      alert("⚠️ " + (typeof err === "string" ? err : "エラーが発生しました"));
-    } finally {
-      btn.disabled = false; btn.textContent = "変更を保存する";
-    }
-  }
-
-  loadDetail();
+var st = document.getElementById("editMainStatus");
+if (!f) { st.textContent = "画像未選択"; return; }
+try {
+await validateAndCompressSquare(f);
+st.textContent = f.name;
+} catch (err) {
+alert("⚠️ " + err);
+input.value = "";
+st.textContent = "画像未選択";
+}
+}
+async function previewEditSub(idx, input) {
+var f = input.files && input.files.item(0);
+if (!f) return;
+try {
+var url = await validateAndCompressSquare(f);
+document.getElementById("editSubPrev" + idx).src = url;
+} catch (err) {
+alert("⚠️ サブ" + idx + "：" + err);
+input.value = "";
+}
+}
+function toggleEdit() {
+var box = document.getElementById("editBox");
+if (!box) return;
+box.style.display = "block";
+box.scrollIntoView({ behavior: "smooth", block: "start" });
+setTimeout(function() {
+var desc = document.getElementById("editDesc");
+if (desc) desc.focus();
+}, 450);
+}
+async function saveEdit() {
+var btn = document.getElementById("saveEditBtn");
+var newTitle = document.getElementById("editTitle").value.trim();
+if (!newTitle) { alert("タイトルは必須です"); return; }
+if (!confirm("編集結果を保存してもいいですか？\n（「OK」で上書き保存、「キャンセル」で編集画面に戻ります）")) {
+return;
+}
+btn.disabled = true; btn.textContent = "検証・保存中...";
+try {
+var f = document.getElementById("editMainFile").files.item(0);
+var newImg = f ? await validateAndCompressSquare(f) : "";
+var curSubs = Array.isArray(currentItem.subImages) ? currentItem.subImages.slice() : ["/Non_file.jpg", "/Non_file.jpg", "/Non_file.jpg"];
+while (curSubs.length < 3) curSubs.push("/Non_file.jpg");
+for (var i = 1; i <= 3; i++) {
+var sf = document.getElementById("editSub" + i).files.item(0);
+if (sf) curSubs[i - 1] = await validateAndCompressSquare(sf);
+}
+var res = await fetch("/api/illusts", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({
+action: "edit",
+id: currentItem.id,
+uid: currentUser.uid,
+title: newTitle,
+description: document.getElementById("editDesc").value,
+tags: document.getElementById("editTags").value,
+mainImage: newImg,
+subImages: curSubs
+})
+});
+var d = await res.json();
+if (res.ok && d.ok) {
+alert("更新しました！");
+location.href = "illust_detail.html?id=" + encodeURIComponent(currentItem.id) + "&fresh=1";
+} else {
+alert(d.error || "更新に失敗しました");
+}
+} catch (err) {
+alert("⚠️ " + (typeof err === "string" ? err : "エラーが発生しました"));
+} finally {
+btn.disabled = false; btn.textContent = "変更を保存する";
+}
+}  loadDetail();
 </script>
 </body>
 </html>
+
