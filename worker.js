@@ -194,6 +194,34 @@ export class OnlineCounter {
       }
     }
 
+    // 4-5. 企画依頼アイデアの保存・取得・削除（/api/plan-requests）
+    if (url.pathname === "/api/plan-requests") {
+      if (request.method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        let list = (await this.state.storage.get("plan_requests")) || [];
+        if (body.action === "delete") {
+          if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+          list = list.filter((i) => String(i.id) !== String(body.id));
+          await this.state.storage.put("plan_requests", list);
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
+        list.unshift({
+          id: Date.now(),
+          date: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
+          theme: String(body.theme || "").slice(0, 120),
+          target: String(body.target || "").slice(0, 150),
+          detail: String(body.detail || "").slice(0, 1500),
+          sender: String(body.sender || "匿名").slice(0, 50),
+        });
+        await this.state.storage.put("plan_requests", list.slice(0, 300));
+        return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+      }
+      if (request.method === "GET") {
+        if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+        const list = (await this.state.storage.get("plan_requests")) || [];
+        return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
+      }
+    }
 
 
     // 5. リアルタイム閲覧人数（WebSocket）
@@ -444,18 +472,20 @@ export default {
 
 
     // WebSocketまたはデータAPIへのアクセス
-    if (
-      url.pathname === "/ws" ||
-      url.pathname === "/api/contact" ||
-      url.pathname === "/api/inquiries" ||
-      url.pathname === "/api/save-user" ||
-      url.pathname === "/api/users" ||
-      url.pathname === "/api/delete-user" ||
-      url.pathname === "/api/video-tap" ||
-      url.pathname === "/api/short-ads"
-    ) {
-      return stub.fetch(request);
-    }
+ if (
+   url.pathname === "/ws" ||
+   url.pathname === "/api/contact" ||
+   url.pathname === "/api/inquiries" ||
+   url.pathname === "/api/save-user" ||
+   url.pathname === "/api/users" ||
+   url.pathname === "/api/delete-user" ||
+   url.pathname === "/api/video-tap" ||
+   url.pathname === "/api/short-ads" ||
+   url.pathname === "/api/plan-requests"
+ ) {
+   return stub.fetch(request);
+ }
+
 
 
 
@@ -633,8 +663,24 @@ export default {
         </script>
       `;
 
+            const planList = await (await stub.fetch(new Request(`https://dummy/api/plan-requests?key=${ADMIN_KEY}`))).json();
+      const plansHtml = planList.length === 0
+        ? "<p style='font-size:13px;color:#666;'>まだ企画依頼の応募はありません。</p>"
+        : planList.map(p => `
+            <div style="background:#fff;border:1px solid #ffcc80;border-radius:10px;padding:14px;margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#888;margin-bottom:4px;">
+                <span>${p.date}（応募者：${p.sender.replace(/</g, "&lt;")}）</span>
+                <button type="button" onclick="deletePlanReq('${p.id}')" style="background:#757575;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;">削除</button>
+              </div>
+              <div style="font-weight:bold;font-size:15px;color:#e65100;margin-bottom:4px;">① シチュエーション：${p.theme.replace(/</g, "&lt;")}</div>
+              <div style="font-size:13px;font-weight:bold;margin-bottom:6px;">② 希望クリエイター・スタンプ：${p.target.replace(/</g, "&lt;")}</div>
+              <div style="white-space:pre-wrap;font-size:13px;background:#fff8f0;padding:10px;border-radius:6px;">③ 詳細：${p.detail.replace(/</g, "&lt;")}</div>
+            </div>
+          `).join("") + `<script>async function deletePlanReq(id){if(!confirm("この企画アイデアを削除しますか？"))return;const r=await fetch("/api/plan-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete",key:"${ADMIN_KEY}",id:id})});if(r.ok)location.reload();}</script>`;
+
+
       return new Response(
-        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title><link rel="icon" href="/icon.png?v=5" type="image/png"></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;">${latestNoticeHtml}${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title><link rel="icon" href="/icon.png?v=5" type="image/png"></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;">${latestNoticeHtml}${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><hr style="margin:30px 0;"><h2>💡 企画依頼アイデアBOX（${planList.length}件）</h2>${plansHtml}<h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
 
@@ -686,5 +732,6 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
+
 
 
