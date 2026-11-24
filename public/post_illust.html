@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>スタンプイラスト投稿 | HookupStickers</title>
+<link rel="icon" href="/icon.png?v=5" type="image/png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icon.png?v=5">
+<style>
+  body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;background-color:#fff8f0;color:#2b1d12}
+  .header{background:#fff;border-bottom:2px solid #ffe0b2;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+  .header-title{font-size:17px;font-weight:bold;color:#e65100;margin:0}
+  .back-btn{background:#3e2723;color:#fff;text-decoration:none;font-size:12px;font-weight:bold;padding:7px 14px;border-radius:20px}
+  .container{max-width:720px;margin:20px auto;padding:0 16px 40px}
+  .card{background:#fff;border:2px solid #ffcc80;border-radius:16px;padding:22px 18px;box-shadow:0 4px 14px rgba(230,81,0,0.08)}
+  .section-title{font-size:19px;font-weight:bold;margin:0 0 14px;padding-left:10px;border-left:4px solid #e65100;color:#3e2723}
+  .form-group{margin-bottom:16px}
+  label{display:block;font-size:13px;font-weight:bold;color:#3e2723;margin-bottom:6px}
+  .badge-req{background:#e65100;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px}
+  .badge-opt{background:#8d6e63;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px}
+  input[type="text"],textarea{width:100%;padding:10px 12px;border:1px solid #ffcc80;border-radius:10px;box-sizing:border-box;font-size:14px;background:#fffdf9;font-family:inherit}
+  textarea{min-height:100px;resize:vertical}
+  .main-upload-box{border:2px dashed #e65100;background:#fff8f0;border-radius:12px;padding:16px;text-align:center}
+  .main-preview{width:185px;height:185px;object-fit:contain;border:1px solid #ffcc80;border-radius:10px;background:#fff;margin-top:10px;display:none}
+  .sub-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .sub-slot{border:1px dashed #ffcc80;background:#fffdf9;border-radius:10px;padding:10px 6px;text-align:center;font-size:11px;color:#795548}
+  .sub-preview{width:100%;max-width:110px;aspect-ratio:1/1;object-fit:contain;border-radius:8px;border:1px solid #eee;background:#fff;margin-top:6px;display:none}
+  .caution-box{background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:12px;font-size:12px;color:#5d4037;line-height:1.6;margin:18px 0 14px}
+  .btn-submit{width:100%;background:#e65100;color:#fff;border:none;padding:14px;border-radius:25px;font-size:16px;font-weight:bold;cursor:pointer}
+  .btn-submit:disabled{background:#ccc;cursor:not-allowed}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 class="header-title">🎨 スタンプイラスト投稿</h1>
+  <a href="index.html" class="back-btn">← トップへ戻る</a>
+</div>
+
+<div class="container">
+  <div class="card">
+    <h2 class="section-title">新作スタンプイラストを投稿する</h2>
+    <form id="illustPostForm">
+      <div style="display:none;"><input type="text" id="hpTrap" autocomplete="off"></div>
+
+      <div class="form-group">
+        <label>メインスタンプ画像（370×370px / トップ新着＆一覧用）<span class="badge-req">必須</span></label>
+        <div class="main-upload-box">
+          <input type="file" id="mainFile" accept="image/png,image/jpeg,image/webp" required>
+          <div style="font-size:11px;color:#795548;margin-top:6px;">※自動で370×370px（詳細・検索用500×500px基準）の正方形に綺麗に収まるよう最適化されます</div>
+          <img id="mainPreview" class="main-preview" alt="メインプレビュー">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>サブスタンプ画像（最大3枚まで / 500×500px自動調整）<span class="badge-opt">任意</span></label>
+        <div class="sub-grid">
+          <div class="sub-slot">
+            <div>サブ 1</div>
+            <input type="file" id="subFile1" accept="image/png,image/jpeg,image/webp" style="width:100%;font-size:10px;margin-top:4px;">
+            <img id="subPrev1" class="sub-preview" alt="サブ1">
+          </div>
+          <div class="sub-slot">
+            <div>サブ 2</div>
+            <input type="file" id="subFile2" accept="image/png,image/jpeg,image/webp" style="width:100%;font-size:10px;margin-top:4px;">
+            <img id="subPrev2" class="sub-preview" alt="サブ2">
+          </div>
+          <div class="sub-slot">
+            <div>サブ 3</div>
+            <input type="file" id="subFile3" accept="image/png,image/jpeg,image/webp" style="width:100%;font-size:10px;margin-top:4px;">
+            <img id="subPrev3" class="sub-preview" alt="サブ3">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>作品タイトル<span class="badge-req">必須</span></label>
+        <input type="text" id="illustTitle" maxlength="60" placeholder="例：元気いっぱい！うさぎのあいさつスタンプ" required>
+      </div>
+
+      <div class="form-group">
+        <label>作品の説明欄（制作秘話・LINE STOREリンクなど）<span class="badge-opt">任意</span></label>
+        <textarea id="illustDesc" maxlength="1000" placeholder="スタンプのこだわりポイントや、販売URLなどをご自由にお書きください"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>ハッシュタグ（スペースまたは # 区切りで最大10個）<span class="badge-opt">任意</span></label>
+        <input type="text" id="illustTags" placeholder="例：#かわいい #うさぎ #日常 #敬語スタンプ">
+      </div>
+
+      <div class="caution-box">
+        <strong>⚠️ コンテンツ投稿時のご注意（必ずお読みください）</strong><br>
+        ・必ず<strong>ご自身が著作権を持つオリジナル作品</strong>のみを投稿してください（他者の作品の無断転載・トレース・権利侵害は厳禁です）。<br>
+        ・公序良俗に反する画像、過度に性的・暴力的な表現、個人情報を含む内容は運営判断により予告なく削除されます。<br>
+        ・投稿された画像は、当サイト「HookupStickers」内の新着欄・検索一覧・紹介ページにて公開されます。
+      </div>
+
+      <button type="submit" class="btn-submit" id="postBtn">この内容でイラストを投稿する</button>
+    </form>
+  </div>
+</div>
+<script>
+  var currentUser = null;
+  (function() {
+    var saved = localStorage.getItem("site_user");
+    if (!saved) {
+      alert("イラスト投稿は会員専用機能です。ログインまたは無料会員登録を行ってください。");
+      location.href = "login.html";
+      return;
+    }
+    currentUser = JSON.parse(saved);
+  })();
+
+  function resizeSquareImage(file, size) {
+    return new Promise(function(resolve, reject) {
+      if (!file) return resolve("");
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        var img = new Image();
+        img.onload = function() {
+          var canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          var ctx = canvas.getContext("2d");
+          ctx.clearRect(0, 0, size, size);
+          var ratio = Math.min(size / img.width, size / img.height);
+          var w = img.width * ratio;
+          var h = img.height * ratio;
+          ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+          resolve(canvas.toDataURL("image/webp", 0.85));
+        };
+        img.onerror = function() { reject("画像の読み込みに失敗しました"); };
+        img.src = ev.target.result;
+      };
+      reader.onerror = function() { reject("ファイルの読み込みに失敗しました"); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function bindPreview(inputId, imgId, size) {
+    document.getElementById(inputId).addEventListener("change", async function(e) {
+      var f = e.target.files && e.target.files.item(0);
+      var prev = document.getElementById(imgId);
+      if (!f) { prev.style.display = "none"; return; }
+      var dataUrl = await resizeSquareImage(f, size);
+      prev.src = dataUrl;
+      prev.style.display = "inline-block";
+    });
+  }
+
+  bindPreview("mainFile", "mainPreview", 500);
+  bindPreview("subFile1", "subPrev1", 500);
+  bindPreview("subFile2", "subPrev2", 500);
+  bindPreview("subFile3", "subPrev3", 500);
+
+  document.getElementById("illustPostForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    var mainF = document.getElementById("mainFile").files.item(0);
+    var title = document.getElementById("illustTitle").value.trim();
+    if (!mainF || !title) {
+      alert("メイン画像と作品タイトルは必須です。");
+      return;
+    }
+
+    var btn = document.getElementById("postBtn");
+    btn.disabled = true;
+    btn.textContent = "画像を最適化して投稿中...";
+
+    try {
+      var mainData = await resizeSquareImage(mainF, 500);
+      var subs = [];
+      for (var i = 1; i <= 3; i++) {
+        var sf = document.getElementById("subFile" + i).files.item(0);
+        if (sf) subs.push(await resizeSquareImage(sf, 500));
+      }
+
+      var res = await fetch("/api/illusts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: currentUser.uid,
+          username: currentUser.username,
+          title: title,
+          description: document.getElementById("illustDesc").value,
+          tags: document.getElementById("illustTags").value,
+          mainImage: mainData,
+          subImages: subs,
+          trap: document.getElementById("hpTrap").value
+        })
+      });
+      var data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(data.error || "投稿に失敗しました。");
+        return;
+      }
+
+      alert("イラストを投稿しました！詳細ページへ移動します。");
+      location.href = "illust_detail.html?id=" + encodeURIComponent(data.id);
+    } catch (err) {
+      alert("投稿処理中にエラーが発生しました。");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "この内容でイラストを投稿する";
+    }
+  });
+</script>
+</body>
+</html>
