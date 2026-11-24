@@ -278,13 +278,40 @@ img, video {
   </div>
 </div>
 
-<!-- ★TOPバナーとタイトル間の検索欄（240x240イラスト検索・処理未実施） -->
+<!-- ★TOPバナーとタイトル間の検索欄（「イラスト検索」表記のみ） -->
 <div class="top-search-wrapper">
-  <form class="top-search-form" onsubmit="event.preventDefault(); alert('スタンプイラスト（240×240px）の検索機能は現在準備中です！');">
-    <input type="text" class="top-search-input" id="stampSearchInput" placeholder="会員投稿イラスト（240×240px）を検索（準備中）...">
+  <form class="top-search-form" action="search.html" method="get">
+    <input type="text" class="top-search-input" name="q" id="stampSearchInput" placeholder="イラスト検索">
     <button type="submit" class="top-search-btn">🔍 検索</button>
   </form>
 </div>
+
+<!-- ★新着スタンプイラスト横1列（PC横5枚 / スマホ横3枚・30分or60分乱数キャッシュ連動） -->
+<style>
+  .recent-illust-section{max-width:1100px;margin:8px auto 16px;padding:0 16px}
+  .recent-illust-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .recent-illust-title{font-size:15px;font-weight:bold;color:#3e2723;margin:0;padding-left:8px;border-left:4px solid #e65100}
+  .recent-illust-more{font-size:12px;color:#e65100;font-weight:bold;text-decoration:none}
+  .recent-row-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+  .recent-card{background:#fff;border:1px solid #ffe0b2;border-radius:12px;padding:6px;text-decoration:none;color:inherit;display:block;transition:transform 0.15s}
+  .recent-card:hover{transform:translateY(-2px)}
+  .recent-thumb{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:8px;background:#fffdf9;display:block}
+  .recent-name{font-size:11px;font-weight:bold;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+  @media (max-width: 768px) {
+    .recent-row-grid{grid-template-columns:repeat(3,1fr);gap:8px}
+    .recent-card:nth-child(n+4){display:none}
+  }
+</style>
+<div class="recent-illust-section" id="recentIllustSection">
+  <div class="recent-illust-header">
+    <h2 class="recent-illust-title">✨ 新着スタンプイラスト</h2>
+    <a href="search.html" class="recent-illust-more">すべて見る →</a>
+  </div>
+  <div class="recent-row-grid" id="recentIllustRow">
+    <div style="grid-column:1/-1;text-align:center;font-size:12px;color:#8d6e63;padding:14px;background:#fff;border-radius:12px;border:1px dashed #ffcc80;">新着イラストを読み込み中...</div>
+  </div>
+</div>
+
 
 <div class="channel-header">
   <div class="channel-title-row">
@@ -314,8 +341,8 @@ img, video {
     <button type="button" class="drawer-close" id="closeDrawerBtn">×</button>
   </div>
   <ul class="drawer-menu">
-    <li><button type="button" class="drawer-item disabled" onclick="alert('現在準備中です。')">🗒️ お知らせ（準備中）</button></li>
-    <li><button type="button" class="drawer-item disabled" onclick="alert('現在準備中です。')">🎨 スタンプイラスト投稿（準備中）</button></li>
+    <li><button type="button" class="drawer-item disabled" onclick="alert('現在準備中です。')">🗒️ お知らせ（準備中）</button></li>  
+    <li><a href="post_illust.html" class="drawer-item">🎨 スタンプイラスト投稿</a></li>
     <li id="drawerMyPageItem" style="display:none;"><a href="#" class="drawer-item" id="drawerMyPageLink" style="color:#e65100;">🏠 会員専用ページ</a></li>
     <li><a href="login.html" id="drawerShortAdLink" class="drawer-item" onclick="handleShortAdClick(event)">🎬 ショート動画を掲載する</a></li>
     <li><a href="plan_request.html" class="drawer-item">💡 企画依頼</a></li>
@@ -822,6 +849,29 @@ document.addEventListener("dragstart", (e) => {
       }, 600);
     }
   });
+
+  (async function loadRecentIllusts() {
+  var row = document.getElementById("recentIllustRow");
+  if (!row) return;
+  try {
+    var res = await fetch("/api/illusts/recent");
+    var data = await res.json();
+    var items = (data && data.items) ? data.items.slice(0, 5) : [];
+    if (items.length === 0) {
+      row.innerHTML = '<div style="grid-column:1/-1;text-align:center;font-size:13px;color:#8d6e63;padding:18px;background:#fff;border-radius:12px;border:1px dashed #ffcc80;">まだ投稿はありません。メニューの「🎨 スタンプイラスト投稿」から最初の作品を投稿しよう！</div>';
+      return;
+    }
+    row.innerHTML = items.map(function(item) {
+      return '<a href="illust_detail.html?id=' + encodeURIComponent(item.id) + '" class="recent-card">' +
+        '<img src="' + item.mainImage + '" class="recent-thumb" alt="' + item.title.replace(/"/g, "&quot;") + '" loading="lazy">' +
+        '<div class="recent-name">' + item.title.replace(/</g, "&lt;") + '</div>' +
+      '</a>';
+    }).join("");
+  } catch (e) {
+    row.innerHTML = "";
+  }
+})();
+
 </script>
 
 
