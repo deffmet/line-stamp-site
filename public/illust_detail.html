@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>イラスト詳細 | HookupStickers</title>
+<link rel="icon" href="/icon.png?v=5" type="image/png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icon.png?v=5">
+<style>
+  body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;background-color:#fff8f0;color:#2b1d12}
+  .header{background:#fff;border-bottom:2px solid #ffe0b2;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+  .header-title{font-size:17px;font-weight:bold;color:#e65100;margin:0}
+  .back-btn{background:#3e2723;color:#fff;text-decoration:none;font-size:12px;font-weight:bold;padding:7px 14px;border-radius:20px}
+  .container{max-width:760px;margin:20px auto;padding:0 16px 40px}
+  .card{background:#fff;border:2px solid #ffcc80;border-radius:16px;padding:22px 18px;box-shadow:0 4px 14px rgba(230,81,0,0.08)}
+  .top-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+  .author-link{font-size:13px;font-weight:bold;color:#e65100;text-decoration:none;background:#fff3e0;padding:5px 12px;border-radius:16px;border:1px solid #ffcc80}
+  .btn-edit{display:none;background:#3e2723;color:#fff;border:none;padding:7px 14px;border-radius:18px;font-size:12px;font-weight:bold;cursor:pointer}
+  .main-img-wrap{text-align:center;background:#fffdf9;border:1px solid #ffe0b2;border-radius:14px;padding:16px;margin-bottom:14px}
+  .main-img{width:100%;max-width:370px;aspect-ratio:1/1;object-fit:contain;display:inline-block}
+  .sub-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  .sub-img{width:100%;aspect-ratio:1/1;object-fit:contain;background:#fffdf9;border:1px solid #ffe0b2;border-radius:10px;padding:4px;box-sizing:border-box}
+  .illust-title{font-size:22px;font-weight:bold;margin:0 0 10px;color:#2b1d12}
+  .illust-desc{white-space:pre-wrap;font-size:14px;line-height:1.7;background:#fff8f0;padding:14px;border-radius:10px;border:1px solid #ffe0b2;margin-bottom:14px}
+  .tags-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .tag-chip{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;font-size:12px;font-weight:bold;padding:4px 10px;border-radius:14px;text-decoration:none}
+  .edit-box{display:none;margin-top:18px;padding-top:18px;border-top:2px dashed #ffcc80}
+  label{display:block;font-size:12px;font-weight:bold;color:#5d4037;margin:10px 0 4px}
+  input[type="text"],textarea{width:100%;padding:10px;border:1px solid #ffcc80;border-radius:8px;box-sizing:border-box;font-size:14px}
+  .btn-save{width:100%;margin-top:14px;background:#e65100;color:#fff;border:none;padding:12px;border-radius:20px;font-size:15px;font-weight:bold;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 class="header-title">🎨 スタンプ作品詳細</h1>
+  <a href="index.html" class="back-btn">← トップへ戻る</a>
+</div>
+
+<div class="container">
+  <div class="card" id="detailCard">
+    <p style="text-align:center;color:#8d6e63;">読み込み中...</p>
+  </div>
+</div>
+<script>
+  var params = new URLSearchParams(location.search);
+  var illustId = params.get("id");
+  var currentUser = null;
+  try { currentUser = JSON.parse(localStorage.getItem("site_user") || "null"); } catch (e) {}
+  var currentItem = null;
+
+  function resizeSquare(file, size) {
+    return new Promise(function(resolve) {
+      if (!file) return resolve("");
+      var r = new FileReader();
+      r.onload = function(ev) {
+        var img = new Image();
+        img.onload = function() {
+          var c = document.createElement("canvas");
+          c.width = size; c.height = size;
+          var ctx = c.getContext("2d");
+          var ratio = Math.min(size / img.width, size / img.height);
+          ctx.drawImage(img, (size - img.width * ratio) / 2, (size - img.height * ratio) / 2, img.width * ratio, img.height * ratio);
+          resolve(c.toDataURL("image/webp", 0.85));
+        };
+        img.src = ev.target.result;
+      };
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function loadDetail() {
+    var card = document.getElementById("detailCard");
+    if (!illustId) { card.innerHTML = "<p>作品IDが指定されていません。</p>"; return; }
+    var res = await fetch("/api/illusts?id=" + encodeURIComponent(illustId));
+    var item = await res.json();
+    if (!item) { card.innerHTML = "<p>この作品は削除されたか存在しません。</p>"; return; }
+    currentItem = item;
+    document.title = item.title + " | HookupStickers";
+
+    var isOwner = currentUser && currentUser.uid === item.uid;
+    var subs = Array.isArray(item.subImages) ? item.subImages : [];
+    var subHtml = subs.length > 0
+      ? '<div class="sub-grid">' + subs.map(function(s) { return '<img src="' + s + '" class="sub-img" alt="サブ画像">'; }).join("") + '</div>'
+      : '';
+    var tagsHtml = (item.tags && item.tags.length > 0)
+      ? '<div class="tags-wrap">' + item.tags.map(function(t) { return '<a href="search.html?tag=' + encodeURIComponent(t) + '" class="tag-chip">#' + t.replace(/</g, "&lt;") + '</a>'; }).join("") + '</div>'
+      : '';
+
+    card.innerHTML =
+      '<div class="top-bar">' +
+        '<a href="/my_page_' + encodeURIComponent(item.username) + '" class="author-link">👤 ' + item.username.replace(/</g, "&lt;") + ' さんのページへ</a>' +
+        '<span style="font-size:11px;color:#8d6e63;">投稿：' + item.date + '</span>' +
+      '</div>' +
+      (isOwner ? '<div style="text-align:right;margin-bottom:10px;"><button type="button" class="btn-edit" style="display:inline-block;" onclick="toggleEdit()">✏️ 編集する</button></div>' : '') +
+      '<div class="main-img-wrap"><img src="' + item.mainImage + '" class="main-img" alt="メイン画像"></div>' +
+      subHtml +
+      '<h2 class="illust-title">' + item.title.replace(/</g, "&lt;") + '</h2>' +
+      (item.description ? '<div class="illust-desc">' + item.description.replace(/</g, "&lt;") + '</div>' : '') +
+      tagsHtml +
+      (isOwner ?
+        '<div class="edit-box" id="editBox">' +
+          '<h3 style="margin:0 0 8px;color:#e65100;font-size:16px;">✏️ 投稿内容を編集する</h3>' +
+          '<label>作品タイトル（必須）</label>' +
+          '<input type="text" id="editTitle" value="' + item.title.replace(/"/g, "&quot;") + '">' +
+          '<label>作品の説明欄</label>' +
+          '<textarea id="editDesc" rows="4">' + (item.description || "").replace(/</g, "&lt;") + '</textarea>' +
+          '<label>ハッシュタグ（スペース区切り）</label>' +
+          '<input type="text" id="editTags" value="' + (item.tags || []).map(function(t){return "#" + t;}).join(" ").replace(/"/g, "&quot;") + '">' +
+          '<label>メイン画像を差し替える場合のみ選択</label>' +
+          '<input type="file" id="editMainFile" accept="image/png,image/jpeg,image/webp">' +
+          '<button type="button" class="btn-save" id="saveEditBtn" onclick="saveEdit()">変更を保存する</button>' +
+        '</div>' : '');
+  }
+
+  function toggleEdit() {
+    var box = document.getElementById("editBox");
+    if (box) box.style.display = box.style.display === "block" ? "none" : "block";
+  }
+
+  async function saveEdit() {
+    var btn = document.getElementById("saveEditBtn");
+    var newTitle = document.getElementById("editTitle").value.trim();
+    if (!newTitle) { alert("タイトルは必須です"); return; }
+    btn.disabled = true; btn.textContent = "保存中...";
+    try {
+      var f = document.getElementById("editMainFile").files.item(0);
+      var newImg = f ? await resizeSquare(f, 500) : "";
+      var res = await fetch("/api/illusts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "edit",
+          id: currentItem.id,
+          uid: currentUser.uid,
+          title: newTitle,
+          description: document.getElementById("editDesc").value,
+          tags: document.getElementById("editTags").value,
+          mainImage: newImg
+        })
+      });
+      var d = await res.json();
+      if (res.ok && d.ok) { alert("更新しました！"); location.reload(); }
+      else { alert(d.error || "更新に失敗しました"); }
+    } finally {
+      btn.disabled = false; btn.textContent = "変更を保存する";
+    }
+  }
+
+  loadDetail();
+</script>
+</body>
+</html>
