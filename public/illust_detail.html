@@ -72,8 +72,25 @@
     <p style="text-align:center;color:#8d6e63;">読み込み中...</p>
   </div>
 
-  <!-- ★投稿時に乱数で割り当てられた忍者AdMax広告枠 -->
-  <div id="illustAdContainer" style="margin-top:16px;text-align:center;overflow:hidden;"></div>
+  <!-- ★投稿時に乱数で割り当てられた忍者AdMax広告枠 --> 
+  <!-- ★3つの忍者AdMax広告のうち1つを同期スクリプトで確実に描画 -->
+  <div id="illustAdContainer" style="margin-top:16px;text-align:center;overflow:hidden;">
+    <script>
+      (function() {
+        var pid = new URLSearchParams(location.search).get("id") || String(Date.now());
+        var sum = 0;
+        for (var i = 0; i < pid.length; i++) sum = (sum * 31 + pid.charCodeAt(i)) >>> 0;
+        var slot = sum % 3;
+        var tags = [
+          "https://adm.shinobi.jp/s/340005cd470b1052d339ef5c0b3e1fd7",
+          "https://adm.shinobi.jp/s/2d04db4919ab16066cb4e76b1ff58095",
+          "https://adm.shinobi.jp/s/0e94197c8d60d4eecdf234afeb3d8d2f"
+        ];
+        document.write('<scr' + 'ipt src="' + tags[slot] + '"><\/scr' + 'ipt>');
+      })();
+    </script>
+  </div>
+
 </div>
 
 </div>
@@ -358,22 +375,7 @@
         '</div>' : '');
 
     recordViewAndSyncStats(item.id);
-        // 投稿時に乱数決定された3つのAdMax広告のうち1つを表示
-    var adScripts = [
-      "https://adm.shinobi.jp/s/0e94197c8d60d4eecdf234afeb3d8d2f",
-      "https://adm.shinobi.jp/s/2d04db4919ab16066cb4e76b1ff58095",
-      "https://adm.shinobi.jp/s/340005cd470b1052d339ef5c0b3e1fd7"
-    ];
-    var chosenSlot = (typeof item.adSlot === "number" && item.adSlot >= 0 && item.adSlot <= 2)
-      ? item.adSlot
-      : (Number(item.id || 0) % 3);
-    var adBox = document.getElementById("illustAdContainer");
-    if (adBox && !adBox.dataset.loaded) {
-      adBox.dataset.loaded = "1";
-      var adSc = document.createElement("script");
-      adSc.src = adScripts[chosenSlot];
-      adBox.appendChild(adSc);
-    }
+
 
   }
 
