@@ -223,49 +223,52 @@ export class OnlineCounter {
         return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
       }
     }
-    // 4-6. 会員イラスト投稿・編集・削除・検索・乱数キャッシュAPI（過負荷＆ボット対策付き）
+     // 4-6. 会員イラスト投稿・編集・削除・検索・乱数キャッシュAPI（個別キー分散保存・過負荷＆ボット対策付き）
     if (url.pathname.startsWith("/api/illusts")) {
       const now = Date.now();
+      const validImg = (s) => String(s).startsWith("data:image/") || String(s) === "/Non_file.jpg";
 
       // A. トップページ新着用（30分 or 60分の50%サイコロ乱数キャッシュ）
       if (url.pathname === "/api/illusts/recent" && request.method === "GET") {
         let cache = await this.state.storage.get("recent_illust_cache");
         if (!cache || now >= cache.nextUpdateAt) {
-          const all = (await this.state.storage.get("illusts")) || [];
-          const slim = all.slice(0, 10).map(({ subImages, ...mainOnly }) => mainOnly);
+          const indexList = (await this.state.storage.get("illust_index")) || [];
           const intervalMs = Math.random() < 0.5 ? 30 * 60 * 1000 : 60 * 60 * 1000;
-          cache = { items: slim, updatedAt: now, nextUpdateAt: now + intervalMs };
+          cache = { items: indexList.slice(0, 10), updatedAt: now, nextUpdateAt: now + intervalMs };
           await this.state.storage.put("recent_illust_cache", cache);
         }
         return new Response(JSON.stringify(cache), {
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=300",
-          },
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" },
         });
       }
 
       // B. 一覧・検索・詳細・会員別取得（GET）
       if (request.method === "GET") {
-        const all = (await this.state.storage.get("illusts")) || [];
         const id = url.searchParams.get("id");
         if (id) {
-          const item = all.find((i) => String(i.id) === String(id));
-          return new Response(JSON.stringify(item || null), {
+          let item = await this.state.storage.get("illust_item_" + id);
+          if (!item) {
+            const legacy = (await this.state.storage.get("illusts")) || [];
+            item = legacy.find((i) => String(i.id) === String(id)) || null;
+          }
+          return new Response(JSON.stringify(item), {
             headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" },
           });
         }
+
+        const indexList = (await this.state.storage.get("illust_index")) || [];
         const author = url.searchParams.get("author");
         if (author) {
-          const byAuthor = all.filter((i) => i.username === author).map(({ subImages, ...rest }) => rest);
-          return new Response(JSON.stringify(byAuthor), { headers: { "Content-Type": "application/json" } });
+          return new Response(JSON.stringify(indexList.filter((i) => i.username === author)), {
+            headers: { "Content-Type": "application/json" },
+          });
         }
-        // 検索・ソート（メイン画像のみ返して通信量節約）
+
         const q = (url.searchParams.get("q") || "").slice(0, 60).toLowerCase().trim();
         const tag = (url.searchParams.get("tag") || "").slice(0, 40).replace(/^#/, "").toLowerCase().trim();
         const sort = url.searchParams.get("sort") || "newest";
 
-        let filtered = all.filter((item) => {
+        let filtered = indexList.filter((item) => {
           const matchQ = !q ||
             (item.title && item.title.toLowerCase().includes(q)) ||
             (item.username && item.username.toLowerCase().includes(q)) ||
@@ -275,89 +278,88 @@ export class OnlineCounter {
         });
 
         if (sort === "oldest") filtered = filtered.slice().reverse();
-        const result = filtered.slice(0, 120).map(({ subImages, ...rest }) => rest);
-        return new Response(JSON.stringify(result), {
+        return new Response(JSON.stringify(filtered.slice(0, 120)), {
           headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
         });
       }
 
-      // C. 新規投稿・本人編集・削除（POST：連投制限＆ボット罠＆サイズ検証）
+      // C. 新規投稿・本人編集・削除（POST）
       if (request.method === "POST") {
         const body = await request.json().catch(() => ({}));
         if (body.trap && String(body.trap).trim() !== "") {
           return new Response(JSON.stringify({ ok: false, error: "不正アクセスを検知しました" }), { status: 403 });
         }
 
-        let all = (await this.state.storage.get("illusts")) || [];
+        let indexList = (await this.state.storage.get("illust_index")) || [];
 
-        // 管理者による強制削除（問い合わせ削除依頼対応）
         if (body.action === "admin_delete") {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
-          all = all.filter((i) => String(i.id) !== String(body.id));
-          await this.state.storage.put("illusts", all);
+          indexList = indexList.filter((i) => String(i.id) !== String(body.id));
+          await this.state.storage.put("illust_index", indexList);
+          await this.state.storage.delete("illust_item_" + body.id);
           await this.state.storage.delete("recent_illust_cache");
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
 
-        // 投稿者本人による削除
         if (body.action === "user_delete") {
-          const target = all.find((i) => String(i.id) === String(body.id));
+          const target = indexList.find((i) => String(i.id) === String(body.id));
           if (!target || target.uid !== String(body.uid)) {
             return new Response(JSON.stringify({ ok: false, error: "削除権限がありません" }), { status: 403 });
           }
-          all = all.filter((i) => String(i.id) !== String(body.id));
-          await this.state.storage.put("illusts", all);
+          indexList = indexList.filter((i) => String(i.id) !== String(body.id));
+          await this.state.storage.put("illust_index", indexList);
+          await this.state.storage.delete("illust_item_" + body.id);
           await this.state.storage.delete("recent_illust_cache");
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
 
-        // 連投スパム防御（同一UIDから30秒以内の連続投稿・編集をブロック）
         const uid = String(body.uid || "");
         if (!uid) return new Response(JSON.stringify({ ok: false, error: "ログインが必要です" }), { status: 401 });
-        const rateMap = (await this.state.storage.get("illust_rate_map")) || {};
-        if (rateMap[uid] && now - rateMap[uid] < 30 * 1000) {
-          return new Response(JSON.stringify({ ok: false, error: "連続操作を検知しました。30秒ほど待ってから再度お試しください。" }), { status: 429 });
-        }
-        rateMap[uid] = now;
-        await this.state.storage.put("illust_rate_map", rateMap);
 
         const cleanTitle = String(body.title || "").trim().slice(0, 60);
         const cleanDesc = String(body.description || "").trim().slice(0, 1000);
         const rawTags = Array.isArray(body.tags) ? body.tags : String(body.tags || "").split(/[\s,、#＃]+/);
         const cleanTags = [...new Set(rawTags.map((t) => String(t).replace(/^[#＃]+/, "").trim().slice(0, 25)).filter(Boolean))].slice(0, 10);
 
-        // 本人による編集更新
         if (body.action === "edit") {
-          const target = all.find((i) => String(i.id) === String(body.id));
-          if (!target || target.uid !== uid) {
+          const fullItem = await this.state.storage.get("illust_item_" + body.id);
+          if (!fullItem || fullItem.uid !== uid) {
             return new Response(JSON.stringify({ ok: false, error: "編集権限がありません" }), { status: 403 });
           }
           if (!cleanTitle) return new Response(JSON.stringify({ ok: false, error: "タイトルは必須です" }), { status: 400 });
-          target.title = cleanTitle;
-          target.description = cleanDesc;
-          target.tags = cleanTags;
+          fullItem.title = cleanTitle;
+          fullItem.description = cleanDesc;
+          fullItem.tags = cleanTags;
           if (body.mainImage && String(body.mainImage).startsWith("data:image/")) {
-            target.mainImage = String(body.mainImage).slice(0, 350000);
+            fullItem.mainImage = String(body.mainImage).slice(0, 110000);
           }
           if (Array.isArray(body.subImages)) {
-            target.subImages = body.subImages.filter(validImg).slice(0, 3).map((s) => String(s).slice(0, 350000));
+            fullItem.subImages = body.subImages.filter(validImg).slice(0, 3).map((s) => String(s).slice(0, 110000));
           }
-          target.updatedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-          await this.state.storage.put("illusts", all);
+          await this.state.storage.put("illust_item_" + body.id, fullItem);
+
+          const idxItem = indexList.find((i) => String(i.id) === String(body.id));
+          if (idxItem) {
+            idxItem.title = cleanTitle;
+            idxItem.tags = cleanTags;
+            idxItem.mainImage = fullItem.mainImage;
+            await this.state.storage.put("illust_index", indexList);
+          }
           await this.state.storage.delete("recent_illust_cache");
-          return new Response(JSON.stringify({ ok: true, id: target.id }), { headers: { "Content-Type": "application/json" } });
+          return new Response(JSON.stringify({ ok: true, id: fullItem.id }), { headers: { "Content-Type": "application/json" } });
         }
 
-        // 新規投稿
         if (!cleanTitle || !body.mainImage || !String(body.mainImage).startsWith("data:image/")) {
           return new Response(JSON.stringify({ ok: false, error: "タイトルとメイン画像は必須です" }), { status: 400 });
         }
-        const newId = now;
-        const subImgs = Array.isArray(body.subImages)
-          ? body.subImages.filter(validImg).slice(0, 3).map((s) => String(s).slice(0, 350000))
-          : [];
 
-        all.unshift({
+        const newId = now;
+        const safeMain = String(body.mainImage).slice(0, 110000);
+        const safeSubs = Array.isArray(body.subImages)
+          ? body.subImages.filter(validImg).slice(0, 3).map((s) => String(s).slice(0, 110000))
+          : ["/Non_file.jpg", "/Non_file.jpg", "/Non_file.jpg"];
+
+        const itemObj = {
           id: newId,
           date: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
           uid: uid,
@@ -365,14 +367,26 @@ export class OnlineCounter {
           title: cleanTitle,
           description: cleanDesc,
           tags: cleanTags,
-          mainImage: String(body.mainImage).slice(0, 350000),
-          subImages: subImgs,
+          mainImage: safeMain,
+          subImages: safeSubs,
+        };
+
+        await this.state.storage.put("illust_item_" + newId, itemObj);
+        indexList.unshift({
+          id: newId,
+          date: itemObj.date,
+          uid: uid,
+          username: itemObj.username,
+          title: cleanTitle,
+          tags: cleanTags,
+          mainImage: safeMain,
         });
-        await this.state.storage.put("illusts", all.slice(0, 500));
+        await this.state.storage.put("illust_index", indexList.slice(0, 150));
         await this.state.storage.delete("recent_illust_cache");
         return new Response(JSON.stringify({ ok: true, id: newId }), { headers: { "Content-Type": "application/json" } });
       }
     }
+
 
     // 5. リアルタイム閲覧人数（WebSocket）
     const webSocketPair = new WebSocketPair();
