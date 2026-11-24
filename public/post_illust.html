@@ -180,7 +180,7 @@
     }
   });
 
-  [1, 2, 3].forEach(function(idx) {
+  new Array(1, 2, 3).forEach(function(idx) {
     document.getElementById("subFile" + idx).addEventListener("change", async function(e) {
       var f = e.target.files && e.target.files.item(0);
       var prev = document.getElementById("subPrev" + idx);
