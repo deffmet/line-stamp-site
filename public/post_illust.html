@@ -222,6 +222,10 @@
     var title = document.getElementById("illustTitle").value.trim();
     if (!mainF || !title) { alert("メイン画像と作品タイトルは必須です。"); return; }
 
+    if (!confirm("入力内容と利用規約を確認のうえ、このイラストを投稿してもよろしいですか？\n（「OK」で投稿、「キャンセル」で入力画面に戻ります）")) {
+      return;
+    }
+
     var btn = document.getElementById("postBtn");
     btn.disabled = true; btn.textContent = "検証・軽量化して投稿中...";
 
