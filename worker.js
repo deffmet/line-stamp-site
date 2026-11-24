@@ -928,6 +928,7 @@ export default {
 
 
 
+
     // ★秘密の管理者ページ（お問い合わせ＋会員一覧も見られます）
     if (url.pathname === "/admin") {
       if (url.searchParams.get("key") !== ADMIN_KEY) {
@@ -1219,49 +1220,65 @@ ${latestNoticeHtml}${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}�
       );
     }
 
-    // ★管理専用ページ2：通報センター（/admin/reports）
+     // ★管理専用ページ2：通報センター（/admin/reports）
     if (url.pathname === "/admin/reports") {
-      if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
-      const reports = await (await stub.fetch(new Request(`https://dummy/api/illusts/report?key=${ADMIN_KEY}`))).json();
+      try {
+        if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+        const repRes = await stub.fetch(new Request(`https://dummy/api/illusts/report?key=${ADMIN_KEY}`));
+        const reports = await repRes.json().catch(() => []);
+        const safeReports = Array.isArray(reports) ? reports : [];
 
-      const repHtml = reports.length === 0
-        ? "<p>現在、違反通報はありません。</p>"
-        : reports.map((r) => `
-            <div class="rep-card" data-kw="${(r.illustTitle + " " + r.category + " " + r.detail + " " + r.reporterUid + " " + r.targetUid + " " + r.targetUsername).toLowerCase().replace(/"/g, "&quot;")}" style="background:#fff;border:2px solid #ef9a9a;border-radius:12px;padding:14px;margin-bottom:12px;">
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;">
-                <span>通報日時：${r.date}</span>
-                <span style="background:#ffebee;color:#c62828;padding:2px 8px;border-radius:6px;font-weight:bold;">${r.category.replace(/</g, "&lt;")}</span>
-              </div>
-              <div style="font-weight:bold;font-size:15px;margin-bottom:4px;">🎨 対象作品：${r.illustTitle.replace(/</g, "&lt;")}</div>
-              <div style="font-size:12px;margin-bottom:6px;">🔗 対象ページ：<a href="/illust_detail.html?id=${encodeURIComponent(r.illustId)}" target="_blank">/illust_detail.html?id=${r.illustId}</a></div>
-              <div style="font-size:12px;background:#f5f5f5;padding:8px;border-radius:6px;margin-bottom:6px;">
-                <div><strong>通報された会員ID：</strong>${r.targetUid.replace(/</g, "&lt;")}（${r.targetUsername.replace(/</g, "&lt;")}）</div>
-                <div><strong>通報した会員ID：</strong>${r.reporterUid.replace(/</g, "&lt;")}（${r.reporterUsername.replace(/</g, "&lt;")}）</div>
-              </div>
-              <div style="white-space:pre-wrap;font-size:13px;background:#fff8f8;border:1px solid #ffcdd2;padding:10px;border-radius:6px;margin-bottom:10px;">${r.detail.replace(/</g, "&lt;")}</div>
-              <div style="display:flex;gap:8px;">
-                <button type="button" onclick="purgeIllustPage('${r.illustId}','${r.illustTitle.replace(/'/g, "\\'")}')" style="flex:1;background:#c62828;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;">🔥 画像ページを完全削除する</button>
-                <button type="button" onclick="dismissReport('${r.id}')" style="background:#616161;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;">通報ログのみ消去</button>
-              </div>
+        const repHtml = safeReports.length === 0
+          ? "<p>現在、違反通報はありません。</p>"
+          : safeReports.map((r) => {
+              const title = String(r.illustTitle || "無題");
+              const cat = String(r.category || "未分類");
+              const detail = String(r.detail || "");
+              const tUid = String(r.targetUid || "不明");
+              const tName = String(r.targetUsername || "不明");
+              const rUid = String(r.reporterUid || "不明");
+              const rName = String(r.reporterUsername || "ゲスト");
+              const kw = (title + " " + cat + " " + detail + " " + rUid + " " + tUid + " " + tName).toLowerCase().replace(/"/g, "&quot;");
+              return `
+                <div class="rep-card" data-kw="${kw}" style="background:#fff;border:2px solid #ef9a9a;border-radius:12px;padding:14px;margin-bottom:12px;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;">
+                    <span>通報日時：${String(r.date || "")}</span>
+                    <span style="background:#ffebee;color:#c62828;padding:2px 8px;border-radius:6px;font-weight:bold;">${cat.replace(/</g, "&lt;")}</span>
+                  </div>
+                  <div style="font-weight:bold;font-size:15px;margin-bottom:4px;">🎨 対象作品：${title.replace(/</g, "&lt;")}</div>
+                  <div style="font-size:12px;margin-bottom:6px;">🔗 対象ページ：<a href="/illust_detail.html?id=${encodeURIComponent(String(r.illustId || ""))}" target="_blank">/illust_detail.html?id=${String(r.illustId || "")}</a></div>
+                  <div style="font-size:12px;background:#f5f5f5;padding:8px;border-radius:6px;margin-bottom:6px;">
+                    <div><strong>通報された会員ID：</strong>${tUid.replace(/</g, "&lt;")}（${tName.replace(/</g, "&lt;")}）</div>
+                    <div><strong>通報した会員ID：</strong>${rUid.replace(/</g, "&lt;")}（${rName.replace(/</g, "&lt;")}）</div>
+                  </div>
+                  <div style="white-space:pre-wrap;font-size:13px;background:#fff8f8;border:1px solid #ffcdd2;padding:10px;border-radius:6px;margin-bottom:10px;">${detail.replace(/</g, "&lt;")}</div>
+                  <div style="display:flex;gap:8px;">
+                    <button type="button" onclick="purgeIllustPage('${String(r.illustId || "")}','${title.replace(/'/g, "\\'")}')" style="flex:1;background:#c62828;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;">🔥 画像ページを完全削除する</button>
+                    <button type="button" onclick="dismissReport('${String(r.id || "")}')" style="background:#616161;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;">通報ログのみ消去</button>
+                  </div>
+                </div>
+              `;
+            }).join("");
+
+        return new Response(
+          `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>通報センター</title></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:720px;margin:0 auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+              <h1 style="margin:0;font-size:20px;color:#c62828;">🚨 通報センター（全${safeReports.length}件・新着順）</h1>
+              <a href="/admin?key=${ADMIN_KEY}" style="background:#333;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:13px;">← 管理トップへ</a>
             </div>
-          `).join("");
-
-      return new Response(
-        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>通報センター</title></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:720px;margin:0 auto;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-            <h1 style="margin:0;font-size:20px;color:#c62828;">🚨 通報センター（全${reports.length}件・新着順）</h1>
-            <a href="/admin?key=${ADMIN_KEY}" style="background:#333;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:13px;">← 管理トップへ</a>
-          </div>
-          <input type="text" id="repSearchBox" oninput="filterReports()" placeholder="作品名・カテゴリー・会員ID・内容で検索" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:16px;font-size:14px;">
-          ${repHtml}
-          <script>
-            function filterReports(){const kw=document.getElementById("repSearchBox").value.toLowerCase().trim();document.querySelectorAll(".rep-card").forEach(c=>{c.style.display=(!kw||c.dataset.kw.includes(kw))?"block":"none";});}
-            async function purgeIllustPage(illustId,title){if(!confirm("対象の画像ページ「"+title+"」をサーバーから完全に抹消しますか？（元に戻せません）"))return;const r=await fetch("/api/illusts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"admin_delete",key:"${ADMIN_KEY}",id:illustId})});if(r.ok)alert("画像ページを完全に削除しました！");}
-            async function dismissReport(repId){if(!confirm("この通報ログを消去しますか？"))return;const r=await fetch("/api/illusts/report",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete_report",key:"${ADMIN_KEY}",id:repId})});if(r.ok)location.reload();}
-          </script>
-        </body></html>`,
-        { headers: { "Content-Type": "text/html; charset=utf-8" } }
-      );
+            <input type="text" id="repSearchBox" oninput="filterReports()" placeholder="作品名・カテゴリー・会員ID・内容で検索" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:16px;font-size:14px;">
+            ${repHtml}
+            <script>
+              function filterReports(){const kw=document.getElementById("repSearchBox").value.toLowerCase().trim();document.querySelectorAll(".rep-card").forEach(c=>{c.style.display=(!kw||c.dataset.kw.includes(kw))?"block":"none";});}
+              async function purgeIllustPage(illustId,title){if(!confirm("対象の画像ページ「"+title+"」をサーバーから完全に抹消しますか？（元に戻せません）"))return;const r=await fetch("/api/illusts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"admin_delete",key:"${ADMIN_KEY}",id:illustId})});if(r.ok)alert("画像ページを完全に削除しました！");}
+              async function dismissReport(repId){if(!confirm("この通報ログを消去しますか？"))return;const r=await fetch("/api/illusts/report",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete_report",key:"${ADMIN_KEY}",id:repId})});if(r.ok)location.reload();}
+            </script>
+          </body></html>`,
+          { headers: { "Content-Type": "text/html; charset=utf-8" } }
+        );
+      } catch (err) {
+        return new Response("通報センターエラー: " + err.message, { status: 500 });
+      }
     }
 
 
