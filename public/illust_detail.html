@@ -49,19 +49,20 @@
   try { currentUser = JSON.parse(localStorage.getItem("site_user") || "null"); } catch (e) {}
   var currentItem = null;
 
-  function resizeSquare(file, size) {
-    return new Promise(function(resolve) {
+  function validateAndCompressSquare(file) {
+    return new Promise(function(resolve, reject) {
       if (!file) return resolve("");
       var r = new FileReader();
       r.onload = function(ev) {
         var img = new Image();
         img.onload = function() {
+          var w = img.width, h = img.height;
+          if (w !== h) return reject("正方形の画像のみ設定可能です（現在 " + w + "×" + h + "px）。");
+          if (w < 100 || w > 500) return reject("100×100px 〜 500×500px の範囲にしてください（現在 " + w + "×" + h + "px）。");
           var c = document.createElement("canvas");
-          c.width = size; c.height = size;
-          var ctx = c.getContext("2d");
-          var ratio = Math.min(size / img.width, size / img.height);
-          ctx.drawImage(img, (size - img.width * ratio) / 2, (size - img.height * ratio) / 2, img.width * ratio, img.height * ratio);
-          resolve(c.toDataURL("image/webp", 0.85));
+          c.width = w; c.height = h;
+          c.getContext("2d").drawImage(img, 0, 0, w, h);
+          resolve(c.toDataURL("image/webp", 0.78));
         };
         img.src = ev.target.result;
       };
@@ -79,10 +80,17 @@
     document.title = item.title + " | HookupStickers";
 
     var isOwner = currentUser && currentUser.uid === item.uid;
-    var subs = Array.isArray(item.subImages) ? item.subImages : [];
-    var subHtml = subs.length > 0
-      ? '<div class="sub-grid">' + subs.map(function(s) { return '<img src="' + s + '" class="sub-img" alt="サブ画像">'; }).join("") + '</div>'
-      : '';
+    var rawSubs = Array.isArray(item.subImages) ? item.subImages : [];
+    var displaySubs = [
+      rawSubs[0] || "/Non_file.jpg",
+      rawSubs[1] || "/Non_file.jpg",
+      rawSubs[2] || "/Non_file.jpg"
+    ];
+
+    var subHtml =
+      '<div style="text-align:center;font-size:13px;font-weight:bold;color:#e65100;margin:6px 0 10px;">↓ このスタンプのほか</div>' +
+      '<div class="sub-grid">' + displaySubs.map(function(s) { return '<img src="' + s + '" class="sub-img" alt="サブ画像">'; }).join("") + '</div>';
+
     var tagsHtml = (item.tags && item.tags.length > 0)
       ? '<div class="tags-wrap">' + item.tags.map(function(t) { return '<a href="search.html?tag=' + encodeURIComponent(t) + '" class="tag-chip">#' + t.replace(/</g, "&lt;") + '</a>'; }).join("") + '</div>'
       : '';
@@ -100,32 +108,52 @@
       tagsHtml +
       (isOwner ?
         '<div class="edit-box" id="editBox">' +
-          '<h3 style="margin:0 0 8px;color:#e65100;font-size:16px;">✏️ 投稿内容を編集する</h3>' +
+          '<h3 style="margin:0 0 8px;color:#e65100;font-size:16px;">✏️ 投稿内容を編集する（100×100〜500×500px正方形のみ）</h3>' +
           '<label>作品タイトル（必須）</label>' +
           '<input type="text" id="editTitle" value="' + item.title.replace(/"/g, "&quot;") + '">' +
           '<label>作品の説明欄</label>' +
           '<textarea id="editDesc" rows="4">' + (item.description || "").replace(/</g, "&lt;") + '</textarea>' +
           '<label>ハッシュタグ（スペース区切り）</label>' +
           '<input type="text" id="editTags" value="' + (item.tags || []).map(function(t){return "#" + t;}).join(" ").replace(/"/g, "&quot;") + '">' +
-          '<label>メイン画像を差し替える場合のみ選択</label>' +
+          '<label>メイン画像を差し替える場合のみ選択（100〜500px正方形）</label>' +
           '<input type="file" id="editMainFile" accept="image/png,image/jpeg,image/webp">' +
+          '<label>サブ画像 1〜3 を差し替える場合のみ選択（100〜500px正方形）</label>' +
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px;">' +
+            '<input type="file" id="editSub1" accept="image/png,image/jpeg,image/webp" style="font-size:10px;">' +
+            '<input type="file" id="editSub2" accept="image/png,image/jpeg,image/webp" style="font-size:10px;">' +
+            '<input type="file" id="editSub3" accept="image/png,image/jpeg,image/webp" style="font-size:10px;">' +
+          '</div>' +
           '<button type="button" class="btn-save" id="saveEditBtn" onclick="saveEdit()">変更を保存する</button>' +
         '</div>' : '');
   }
 
   function toggleEdit() {
     var box = document.getElementById("editBox");
-    if (box) box.style.display = box.style.display === "block" ? "none" : "block";
+    if (!box) return;
+    box.style.display = "block";
+    box.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(function() {
+      var desc = document.getElementById("editDesc");
+      if (desc) desc.focus();
+    }, 450);
   }
 
   async function saveEdit() {
     var btn = document.getElementById("saveEditBtn");
     var newTitle = document.getElementById("editTitle").value.trim();
     if (!newTitle) { alert("タイトルは必須です"); return; }
-    btn.disabled = true; btn.textContent = "保存中...";
+    btn.disabled = true; btn.textContent = "検証・保存中...";
     try {
       var f = document.getElementById("editMainFile").files.item(0);
-      var newImg = f ? await resizeSquare(f, 500) : "";
+      var newImg = f ? await validateAndCompressSquare(f) : "";
+
+      var curSubs = Array.isArray(currentItem.subImages) ? currentItem.subImages.slice() : ["/Non_file.jpg", "/Non_file.jpg", "/Non_file.jpg"];
+      while (curSubs.length < 3) curSubs.push("/Non_file.jpg");
+      for (var i = 1; i <= 3; i++) {
+        var sf = document.getElementById("editSub" + i).files.item(0);
+        if (sf) curSubs[i - 1] = await validateAndCompressSquare(sf);
+      }
+
       var res = await fetch("/api/illusts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -136,12 +164,15 @@
           title: newTitle,
           description: document.getElementById("editDesc").value,
           tags: document.getElementById("editTags").value,
-          mainImage: newImg
+          mainImage: newImg,
+          subImages: curSubs
         })
       });
       var d = await res.json();
       if (res.ok && d.ok) { alert("更新しました！"); location.reload(); }
       else { alert(d.error || "更新に失敗しました"); }
+    } catch (err) {
+      alert("⚠️ " + (typeof err === "string" ? err : "エラーが発生しました"));
     } finally {
       btn.disabled = false; btn.textContent = "変更を保存する";
     }
