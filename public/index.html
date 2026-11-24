@@ -263,18 +263,15 @@ img, video {
   
 </style>
 </head>
-<body><div class="yt-banner-wrapper">
+<body><div class="yt-banner-wrapper" style="position:relative;">
   <img src="banner.png" alt="チャンネルメインバナー" class="yt-banner">
-</div>
-<!-- ★スマホ画面幅に合わせて自動縮小リサイズする広告枠 -->
-<div class="top-ad-outer" id="topAdBox">
-  <div class="ad-close-wrap">
-    <button type="button" class="ad-close-btn" onclick="document.getElementById('topAdBox').style.display='none'" title="広告を閉じる">×</button>
-    <div class="top-ad-scaler" id="topAdScaler">
-      <!-- admax -->
-      <script src="https://adm.shinobi.jp/s/61d5df1c6c25c294aba42e14fe27cb25"></script>
-      <!-- admax -->
-    </div>
+  <div class="header-right-actions banner-overlay-actions">
+    <a href="login.html" id="headerAuthBtn" class="auth-nav-btn" style="margin-left:0;">👤 無料会員登録 / ログイン</a>
+    <button type="button" class="hamburger-btn" id="openDrawerBtn" title="メニューを開く" aria-label="メニュー">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
   </div>
 </div>
 
@@ -313,25 +310,48 @@ img, video {
 </div>
 
 
+<style>
+  .banner-overlay-actions{
+    position:absolute;
+    top:12px;
+    right:14px;
+    z-index:20;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .banner-overlay-actions .auth-nav-btn,
+  .banner-overlay-actions .hamburger-btn{
+    box-shadow:0 3px 10px rgba(0,0,0,0.28);
+  }
+  @media (max-width: 768px) {
+    .banner-overlay-actions{
+      top:8px;
+      right:10px;
+      gap:6px;
+    }
+    .banner-overlay-actions .auth-nav-btn{
+      font-size:11px;
+      padding:6px 10px;
+    }
+    .banner-overlay-actions .hamburger-btn{
+      width:36px;
+      height:36px;
+    }
+  }
+</style>
+
 <div class="channel-header">
   <div class="channel-title-row">
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
       <h1 class="channel-title">HookupStickers</h1>
       <span class="live-badge" id="liveBadge" style="display:none;"><span class="live-dot"></span>現在 <strong id="viewerCount">1</strong>人が閲覧中</span>
     </div>
-    <div class="header-right-actions">
-
-      <a href="login.html" id="headerAuthBtn" class="auth-nav-btn" style="margin-left:0;">👤 無料会員登録 / ログイン</a>
-      <button type="button" class="hamburger-btn" id="openDrawerBtn" title="メニューを開く" aria-label="メニュー">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-    </div>
   </div>
   <p class="channel-desc">クリエイター様のLINEスタンプを使ったトーク動画を制作・公開中！無償掲載＆100円有償出演の依頼を受け付けています。
 ※当サイトはLINEヤフー株式会社とは一切関係のない、個人運営の非公認ファンサイトです。あらかじめご了承ください。</p>
 </div>
+
 
 <!-- ★右側から開く5カテゴリーメニュー窓 -->
 <div class="drawer-overlay" id="drawerOverlay"></div>
