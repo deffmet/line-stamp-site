@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企画依頼・アイデア応募 | HookupStickers</title>
+<link rel="icon" href="/icon.png?v=5" type="image/png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icon.png?v=5">
+<style>
+  body{margin:0;padding:0;font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;background-color:#fff8f0;color:#2b1d12}
+  .header{background:#fff;border-bottom:2px solid #ffe0b2;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+  .header-title{font-size:17px;font-weight:bold;color:#e65100;margin:0}
+  .back-btn{background:#3e2723;color:#fff;text-decoration:none;font-size:12px;font-weight:bold;padding:7px 14px;border-radius:20px}
+  .container{max-width:680px;margin:24px auto;padding:0 16px 40px}
+  .card{background:#fff;border:2px solid #ffcc80;border-radius:16px;padding:24px 20px;box-shadow:0 4px 14px rgba(230,81,0,0.08)}
+  .section-title{font-size:20px;font-weight:bold;margin:0 0 8px;padding-left:10px;border-left:4px solid #e65100;color:#3e2723}
+  .lead-text{font-size:13px;color:#5d4037;margin:0 0 20px;line-height:1.6}
+  .form-group{margin-bottom:16px}
+  label{display:block;font-size:13px;font-weight:bold;color:#3e2723;margin-bottom:6px}
+  .badge-req{background:#e65100;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
+  .badge-opt{background:#8d6e63;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
+  input,textarea{width:100%;padding:11px 12px;border:1px solid #ffcc80;border-radius:10px;box-sizing:border-box;font-size:14px;background:#fffdf9;font-family:inherit}
+  textarea{min-height:130px;resize:vertical}
+  .btn-submit{width:100%;background:#e65100;color:#fff;border:none;padding:14px;border-radius:25px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 4px 10px rgba(230,81,0,0.25)}
+  .btn-submit:hover{background:#bf360c}
+  .btn-submit:disabled{background:#ccc;cursor:not-allowed}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 class="header-title">💡 企画依頼・アイデア応募</h1>
+  <a href="index.html" class="back-btn">← トップへ戻る</a>
+</div>
+
+<div class="container">
+  <div class="card">
+    <h2 class="section-title">視聴者の想いが形に！アイデアをだしてみる！</h2>
+    <p class="lead-text">動画にしてほしいシチュエーションや、登場させてほしいイラストレーター・スタンプ作品のアイデアをお送りください！</p>
+
+    <form id="planRequestForm">
+      <!-- ① シチュエーション（テーマ） -->
+      <div class="form-group">
+        <label>① シチュエーション（テーマ・タイトル）<span class="badge-req">必須</span></label>
+        <input type="text" id="planTheme" placeholder="例：朝の寝坊で焦っているときのやりとり" required>
+      </div>
+
+      <!-- ② 出してほしいイラストレーター、または作品スタンプ -->
+      <div class="form-group">
+        <label>② 出してほしいイラストレーター、または作品スタンプ<span class="badge-req">必須</span></label>
+        <input type="text" id="planTarget" placeholder="例：〇〇さんの「△△スタンプ」や、イラストレーター名・URLなど" required>
+      </div>
+
+      <!-- ③ シチュエーション詳細 -->
+      <div class="form-group">
+        <label>③ シチュエーション詳細（セリフ・流れ・こだわりポイント）<span class="badge-req">必須</span></label>
+        <textarea id="planDetail" placeholder="例：最初は余裕そうにしていたのに、時計を見て急にスタンプを連打する展開にしてほしいです！" required></textarea>
+      </div>
+
+      <!-- ニックネーム（任意・ログイン中なら自動入力） -->
+      <div class="form-group">
+        <label>応募者ニックネーム<span class="badge-opt">任意</span></label>
+        <input type="text" id="planSender" placeholder="例：匿名希望 / あなたのニックネーム">
+      </div>
+
+      <button type="submit" class="btn-submit" id="planSubmitBtn">この企画アイデアを応募する</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  // ログイン済みならニックネーム欄に自動セット
+  (function() {
+    var saved = localStorage.getItem("site_user");
+    if (saved) {
+      try {
+        var u = JSON.parse(saved);
+        if (u.username) document.getElementById("planSender").value = u.username;
+      } catch (e) {}
+    }
+  })();
+
+  document.getElementById("planRequestForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    var btn = document.getElementById("planSubmitBtn");
+    btn.disabled = true;
+    btn.textContent = "送信中...";
+
+    try {
+      var res = await fetch("/api/plan-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          theme: document.getElementById("planTheme").value.trim(),
+          target: document.getElementById("planTarget").value.trim(),
+          detail: document.getElementById("planDetail").value.trim(),
+          sender: document.getElementById("planSender").value.trim() || "匿名"
+        })
+      });
+      if (res.ok) {
+        alert("企画アイデアの応募を受け付けました！ありがとうございます！");
+        document.getElementById("planRequestForm").reset();
+      } else {
+        alert("送信に失敗しました。時間をおいて再度お試しください。");
+      }
+    } catch (err) {
+      alert("通信エラーが発生しました。");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "この企画アイデアを応募する";
+    }
+  });
+</script>
+</body>
+</html>
