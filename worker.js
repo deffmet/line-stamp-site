@@ -895,8 +895,6 @@ export default {
 
       const roleMap = { client: "依頼者", creator: "クリエイター", both: "依頼者・クリエイター両方" };
       const safeName = member.username.replace(/</g, "&lt;");
-      const roleMap = { client: "依頼者", creator: "クリエイター", both: "依頼者・クリエイター両方" };
-      const safeName = member.username.replace(/</g, "&lt;");
       const safeRole = roleMap[member.role] || "会員";
       const memberIllusts = await (await stub.fetch(new Request(`https://dummy/api/illusts?author=${encodeURIComponent(member.username)}`))).json();
 
