@@ -99,9 +99,16 @@
       <button type="button" id="save-role-btn" class="btn-save-role" onclick="handleUpdateRole()">利用区分を変更する</button>
     </div>
 
-    <a href="index.html" style="display:block;margin:20px 0;color:#e65100;font-weight:bold;text-decoration:none;">← トップページへ戻る</a>
-    <button type="button" class="logout-btn" onclick="handleLogout()">ログアウト</button>
-  </div>
+    <a href="index.html" style="display:block;width:100%;box-sizing:border-box;background:#e65100;color:#fff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px;border-radius:10px;text-align:center;margin-top:20px;box-shadow:0 4px 10px rgba(230,81,0,0.2);">
+      ← トップページへ戻る
+    </a>
+
+    <div style="text-align:center;margin-top:16px;">
+      <button type="button" id="logoutBtn" onclick="handleLogout()" style="background:#757575;color:#fff;border:none;font-size:12px;font-weight:bold;padding:7px 18px;border-radius:6px;cursor:pointer;">
+        ログアウト
+      </button>
+    </div>
+
   <div id="msg-box" class="message"></div>
 </div>
 
