@@ -254,21 +254,31 @@
           '<a href="' + stampUrl.replace(/"/g, "&quot;") + '" target="_blank" rel="noopener" style="color:#1565c0;font-weight:bold;font-size:12px;text-decoration:underline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔗 LINEスタンプ購入ページへ ↗</a>' +
           (isOwner ? '<button type="button" onclick="withdrawStampUrl()" style="background:#ef6c00;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:bold;cursor:pointer;white-space:nowrap;">取り下げ</button>' : '') +
         '</div>';
+        } else if (isOwner && stampStatus === "pending") {
+      // ★申請中：本会員でも入力欄をグレーアウトしてロックし、横のボタンを押すと取り消し可能にする
+      stampBoxHtml =
+        '<div style="flex:1;min-width:200px;background:#f5f5f5;border:1px solid #bdbdbd;border-radius:12px;padding:6px 8px;">' +
+          '<div style="display:flex;gap:4px;align-items:center;">' +
+            '<input type="url" value="' + stampUrl.replace(/"/g, "&quot;") + '" disabled style="flex:1;min-width:0;padding:5px 8px;font-size:11px;border:1px solid #ccc;border-radius:6px;background:#e0e0e0;color:#666;cursor:not-allowed;">' +
+            '<button type="button" onclick="withdrawStampUrl()" style="background:#ef6c00;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:bold;cursor:pointer;white-space:nowrap;">申請中（取消）</button>' +
+          '</div>' +
+          '<div style="font-size:10px;color:#e65100;font-weight:bold;margin-top:3px;">⏳ 運営審査中です（「申請中（取消）」を押すと申請を取り消せます）</div>' +
+        '</div>';
     } else if (isOwner) {
-      // 本人（未申請・審査中・不承認・取り下げ後）：URL入力＋自動チェッカー＋申請ボタン
-      var statusHint = stampStatus === "pending" ? "⏳ 現在審査中です（URL変更再申請も可）"
-        : stampStatus === "rejected" ? "❌ 前回の申請は不承認でした（別URLで再申請可）"
+      // 未申請・不承認・取り下げ後：入力欄有効＋自動チェッカー＋申請ボタン
+      var statusHint = stampStatus === "rejected" ? "❌ 前回の申請は不承認でした（別URLで再申請可）"
         : stampStatus === "withdrawn" ? "⚠️ 取り下げ済み（別URLで再申請可）"
         : "LINE STOREのスタンプ購入URLを入力";
       stampBoxHtml =
         '<div style="flex:1;min-width:200px;background:#fff8f0;border:1px solid #ffcc80;border-radius:12px;padding:6px 8px;">' +
           '<div style="display:flex;gap:4px;align-items:center;">' +
-            '<input type="url" id="stampUrlInput" value="' + stampUrl.replace(/"/g, "&quot;") + '" oninput="checkLineStampUrl(this.value)" placeholder="https://line.me..." style="flex:1;min-width:0;padding:5px 8px;font-size:11px;border:1px solid #ffcc80;border-radius:6px;background:#fff;">' +
+            '<input type="url" id="stampUrlInput" value="" oninput="checkLineStampUrl(this.value)" placeholder="https://line.me..." style="flex:1;min-width:0;padding:5px 8px;font-size:11px;border:1px solid #ffcc80;border-radius:6px;background:#fff;">' +
             '<button type="button" id="stampUrlApplyBtn" disabled onclick="applyStampUrl()" style="background:#bdbdbd;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:bold;cursor:not-allowed;white-space:nowrap;">申請</button>' +
           '</div>' +
           '<div id="stampUrlCheckMsg" style="font-size:10px;color:#795548;margin-top:3px;">' + statusHint + '</div>' +
         '</div>';
     } else {
+
       // 他会員・未ログイン（未承認時）：グレーアウト状態で入力不可
       stampBoxHtml =
         '<div style="flex:1;min-width:160px;background:#eeeeee;border:1px solid #d0d0d0;border-radius:12px;padding:7px 10px;color:#888;font-size:11px;font-weight:bold;text-align:center;user-select:none;">' +
