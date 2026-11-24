@@ -460,6 +460,158 @@ export class OnlineCounter {
         }
       }
     }
+    // 4-7. LINEスタンプURL申請・審査・取り下げAPI（/api/illusts/stamp-url）
+    if (url.pathname === "/api/illusts/stamp-url" && request.method === "POST") {
+      try {
+        const body = await request.json();
+        const action = String(body.action || "");
+        const illustId = String(body.illustId || "");
+        const fullItem = await this.state.storage.get("illust_item_" + illustId);
+        let urlLogs = (await this.state.storage.get("stamp_url_logs")) || [];
+
+        const isValidLineUrl = (u) => {
+          const s = String(u || "").trim();
+          return /^https:\/\/(store\.line\.me\/stickershop\/product\/|line\.me\/S\/sticker\/)[a-zA-Z0-9_\-\/\?\=\&\%]+$/i.test(s);
+        };
+
+        // 会員本人による申請
+        if (action === "apply") {
+          if (!fullItem || fullItem.uid !== String(body.uid)) {
+            return new Response(JSON.stringify({ ok: false, error: "申請権限がありません" }), { status: 403 });
+          }
+          const cleanUrl = String(body.stampUrl || "").trim().slice(0, 300);
+          if (!isValidLineUrl(cleanUrl)) {
+            return new Response(JSON.stringify({ ok: false, error: "LINEスタンプ公式購入ページのURLのみ申請可能です" }), { status: 400 });
+          }
+          fullItem.stampUrl = cleanUrl;
+          fullItem.stampUrlStatus = "pending";
+          fullItem.stampUrlUpdatedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          await this.state.storage.put("illust_item_" + illustId, fullItem);
+
+          urlLogs = urlLogs.filter((l) => String(l.illustId) !== illustId);
+          urlLogs.unshift({
+            id: Date.now(),
+            date: fullItem.stampUrlUpdatedAt,
+            illustId: illustId,
+            illustTitle: fullItem.title,
+            uid: fullItem.uid,
+            username: fullItem.username,
+            stampUrl: cleanUrl,
+            status: "pending",
+            note: "新規・再申請"
+          });
+          await this.state.storage.put("stamp_url_logs", urlLogs.slice(0, 1000));
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        // 会員本人による取り下げ
+        if (action === "withdraw") {
+          if (!fullItem || fullItem.uid !== String(body.uid)) {
+            return new Response(JSON.stringify({ ok: false, error: "操作権限がありません" }), { status: 403 });
+          }
+          const prevUrl = fullItem.stampUrl || "";
+          fullItem.stampUrl = "";
+          fullItem.stampUrlStatus = "withdrawn";
+          fullItem.stampUrlUpdatedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+          await this.state.storage.put("illust_item_" + illustId, fullItem);
+
+          const log = urlLogs.find((l) => String(l.illustId) === illustId);
+          if (log) {
+            log.status = "withdrawn";
+            log.note = "⚠️ 本人により取り下げ（" + fullItem.stampUrlUpdatedAt + "）";
+          } else {
+            urlLogs.unshift({
+              id: Date.now(),
+              date: fullItem.stampUrlUpdatedAt,
+              illustId: illustId,
+              illustTitle: fullItem.title,
+              uid: fullItem.uid,
+              username: fullItem.username,
+              stampUrl: prevUrl,
+              status: "withdrawn",
+              note: "⚠️ 本人により取り下げ"
+            });
+          }
+          await this.state.storage.put("stamp_url_logs", urlLogs.slice(0, 1000));
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        // 運営による承認・不承認・ログ削除
+        if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+
+        if (action === "review") {
+          const decision = body.decision === "approved" ? "approved" : "rejected";
+          if (fullItem) {
+            fullItem.stampUrlStatus = decision;
+            if (decision === "rejected") fullItem.stampUrl = "";
+            await this.state.storage.put("illust_item_" + illustId, fullItem);
+          }
+          const log = urlLogs.find((l) => String(l.illustId) === illustId);
+          if (log) {
+            log.status = decision;
+            log.note = decision === "approved" ? "✅ 運営承認済み" : "❌ 運営不承認";
+          }
+          await this.state.storage.put("stamp_url_logs", urlLogs);
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        if (action === "delete_log") {
+          urlLogs = urlLogs.filter((l) => String(l.illustId) !== illustId);
+          if (fullItem) {
+            fullItem.stampUrl = "";
+            fullItem.stampUrlStatus = "";
+            await this.state.storage.put("illust_item_" + illustId, fullItem);
+          }
+          await this.state.storage.put("stamp_url_logs", urlLogs);
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500 });
+      }
+    }
+
+    // 4-8. イラスト違反通報の保存・一覧・削除API（/api/illusts/report）
+    if (url.pathname === "/api/illusts/report") {
+      if (request.method === "GET") {
+        if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+        const list = (await this.state.storage.get("illust_reports")) || [];
+        return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
+      }
+      if (request.method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        let list = (await this.state.storage.get("illust_reports")) || [];
+
+        if (body.action === "delete_report") {
+          if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+          list = list.filter((r) => String(r.id) !== String(body.id));
+          await this.state.storage.put("illust_reports", list);
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
+
+        const reportObj = {
+          id: Date.now(),
+          date: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
+          illustId: String(body.illustId || ""),
+          illustTitle: String(body.illustTitle || "").slice(0, 80),
+          targetUid: String(body.targetUid || "不明"),
+          targetUsername: String(body.targetUsername || "不明"),
+          reporterUid: String(body.reporterUid || "未ログイン（ゲスト）"),
+          reporterUsername: String(body.reporterUsername || "ゲスト"),
+          reporterEmail: String(body.reporterEmail || "").trim().slice(0, 120),
+          category: String(body.category || "").slice(0, 50),
+          detail: String(body.detail || "").slice(0, 1000),
+        };
+        list.unshift(reportObj);
+        await this.state.storage.put("illust_reports", list.slice(0, 1000));
+        return new Response(JSON.stringify({ ok: true, report: reportObj }), { headers: { "Content-Type": "application/json" } });
+      }
+    }
+
+    if (url.pathname === "/api/stamp-url-logs" && request.method === "GET") {
+      if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+      const logs = (await this.state.storage.get("stamp_url_logs")) || [];
+      return new Response(JSON.stringify(logs), { headers: { "Content-Type": "application/json" } });
+    }
 
 
     // 5. リアルタイム閲覧人数（WebSocket）
@@ -707,6 +859,50 @@ export default {
         });
       }
     }
+    // ★イラスト違反通報＋控えメール自動送信API（/api/report-illust）
+    if (url.pathname === "/api/report-illust" && request.method === "POST") {
+      try {
+        const body = await request.json();
+        const saveRes = await stub.fetch(new Request("https://dummy/api/illusts/report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }));
+        const saveData = await saveRes.json();
+
+        // 通報者のメールアドレスがある場合は控えメールを自動送信
+        const toEmail = String(body.reporterEmail || "").trim();
+        if (toEmail && typeof RESEND_API_KEY !== "undefined" && RESEND_API_KEY) {
+          const mailText =
+            `${body.reporterUsername || "会員"} 様\n\n` +
+            `HookupStickers への違反通報を受け付けました。ご協力ありがとうございます。\n` +
+            `以下の内容で運営チームへ報告いたしました。\n\n` +
+            `----------------------------------------\n` +
+            `■ 対象作品：${body.illustTitle || ""}（ID: ${body.illustId || ""}）\n` +
+            `■ 通報カテゴリー：${body.category || ""}\n` +
+            `■ 通報内容：\n${body.detail || ""}\n` +
+            `----------------------------------------\n\n` +
+            `※本メールは送信専用です。`;
+
+          await fetch("https://resend.com", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${RESEND_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "HookupStickers 運営事務局 <onboarding@resend.dev>",
+              to: [toEmail],
+              subject: "【HookupStickers】違反通報の受付控え",
+              text: mailText,
+            }),
+          }).catch(() => {});
+        }
+        return new Response(JSON.stringify(saveData), { headers: { "Content-Type": "application/json" } });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500 });
+      }
+    }
 
 
     // WebSocketまたはデータAPIへのアクセス
@@ -720,10 +916,12 @@ export default {
       url.pathname === "/api/video-tap" ||
       url.pathname === "/api/short-ads" ||
       url.pathname === "/api/plan-requests" ||
+      url.pathname === "/api/stamp-url-logs" ||
       url.pathname.startsWith("/api/illusts")
     ) {
       return stub.fetch(request);
     }
+
 
 
 
@@ -961,10 +1159,111 @@ export default {
       `;
 
       return new Response(
-        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title><link rel="icon" href="/icon.png?v=5" type="image/png"></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;">${latestNoticeHtml}${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><h2>💡 企画依頼アイデアBOX（${planList.length}件）</h2>${plansHtml}<hr style="margin:30px 0;">${adminIllustBoxHtml}<h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>運営管理画面</title><link rel="icon" href="/icon.png?v=5" type="image/png"></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:680px;margin:0 auto;"><div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+  <a href="/admin/stamp-urls?key=${ADMIN_KEY}" style="background:#06c755;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:bold;">🔗 LINEスタンプURL審査ページへ</a>
+  <a href="/admin/reports?key=${ADMIN_KEY}" style="background:#d93025;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:bold;">🚨 通報センターへ</a>
+</div>
+${latestNoticeHtml}${videoBoxHtml}<h2>👥 登録会員一覧（${users.length}名）</h2>${usersHtml}<hr style="margin:30px 0;"><h2>💡 企画依頼アイデアBOX（${planList.length}件）</h2>${plansHtml}<hr style="margin:30px 0;">${adminIllustBoxHtml}<h2>📩 お問い合わせ受信BOX（最新100件）</h2>${itemsHtml}</body></html>`,
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
     }
+
+        // ★管理専用ページ1：LINEスタンプ公式URL 審査・履歴管理（/admin/stamp-urls）
+    if (url.pathname === "/admin/stamp-urls") {
+      if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+      const logs = await (await stub.fetch(new Request(`https://dummy/api/stamp-url-logs?key=${ADMIN_KEY}`))).json();
+      const pendingLogs = logs.filter((l) => l.status === "pending").reverse();
+      const otherLogs = logs.filter((l) => l.status !== "pending");
+      const ordered = [...pendingLogs, ...otherLogs];
+
+      const rowsHtml = ordered.length === 0
+        ? "<p>まだLINEスタンプURLの申請はありません。</p>"
+        : ordered.map((l) => {
+            const stBadge = l.status === "approved" ? "<span style='color:#2e7d32;font-weight:bold;'>✅ 承認済み</span>"
+              : l.status === "rejected" ? "<span style='color:#c62828;font-weight:bold;'>❌ 不承認</span>"
+              : l.status === "withdrawn" ? "<span style='color:#ef6c00;font-weight:bold;'>⚠️ 本人取り下げ済み</span>"
+              : "<span style='color:#e65100;font-weight:bold;'>⏳ 未判定（古い順優先）</span>";
+            return `
+              <div class="url-log-card" data-kw="${(l.illustTitle + " " + l.username + " " + l.stampUrl + " " + l.status).toLowerCase().replace(/"/g, "&quot;")}" style="background:#fff;border:2px solid ${l.status === "pending" ? "#06c755" : "#ddd"};border-radius:12px;padding:14px;margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;">
+                  <span>申請日時：${l.date}</span>
+                  <span>${stBadge}</span>
+                </div>
+                <div style="font-weight:bold;font-size:15px;margin-bottom:4px;">🎨 作品：${l.illustTitle.replace(/</g, "&lt;")}（投稿者：${l.username.replace(/</g, "&lt;")}）</div>
+                <div style="font-size:12px;margin-bottom:4px;">🔗 紐づけイラストページ：<a href="/illust_detail.html?id=${encodeURIComponent(l.illustId)}" target="_blank">/illust_detail.html?id=${l.illustId}</a></div>
+                <div style="font-size:12px;margin-bottom:8px;word-break:break-all;background:#f9f9f9;padding:8px;border-radius:6px;">申請LINE URL：<a href="${l.stampUrl.replace(/"/g, "&quot;")}" target="_blank" style="color:#06c755;font-weight:bold;">${l.stampUrl.replace(/</g, "&lt;")}</a><div style="color:#777;margin-top:4px;">状況メモ：${(l.note || "").replace(/</g, "&lt;")}</div></div>
+                <div style="display:flex;gap:8px;">
+                  <button type="button" onclick="reviewStampUrl('${l.illustId}','approved')" style="flex:1;background:#2e7d32;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;">✅ 承認</button>
+                  <button type="button" onclick="reviewStampUrl('${l.illustId}','rejected')" style="flex:1;background:#c62828;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;">❌ 不承認</button>
+                  <button type="button" onclick="deleteStampUrlLog('${l.illustId}')" style="background:#424242;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;">🗑️ 削除</button>
+                </div>
+              </div>
+            `;
+          }).join("");
+
+      return new Response(
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LINEスタンプURL審査ページ</title></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:720px;margin:0 auto;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+            <h1 style="margin:0;font-size:20px;">🔗 LINEスタンプ公式URL 審査管理（未判定:${pendingLogs.length}件）</h1>
+            <a href="/admin?key=${ADMIN_KEY}" style="background:#333;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:13px;">← 管理トップへ</a>
+          </div>
+          <input type="text" id="urlSearchBox" oninput="filterUrlLogs()" placeholder="作品名・会員名・URL・ステータスで過去履歴検索" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:16px;font-size:14px;">
+          ${rowsHtml}
+          <script>
+            function filterUrlLogs(){const kw=document.getElementById("urlSearchBox").value.toLowerCase().trim();document.querySelectorAll(".url-log-card").forEach(c=>{c.style.display=(!kw||c.dataset.kw.includes(kw))?"block":"none";});}
+            async function reviewStampUrl(id,decision){if(!confirm(decision==="approved"?"このLINEスタンプURLを承認して公開しますか？":"この申請を不承認にしますか？"))return;const r=await fetch("/api/illusts/stamp-url",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"review",key:"${ADMIN_KEY}",illustId:id,decision:decision})});if(r.ok)location.reload();}
+            async function deleteStampUrlLog(id){if(!confirm("このURL申請ログを完全に削除しますか？"))return;const r=await fetch("/api/illusts/stamp-url",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete_log",key:"${ADMIN_KEY}",illustId:id})});if(r.ok)location.reload();}
+          </script>
+        </body></html>`,
+        { headers: { "Content-Type": "text/html; charset=utf-8" } }
+      );
+    }
+
+    // ★管理専用ページ2：通報センター（/admin/reports）
+    if (url.pathname === "/admin/reports") {
+      if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+      const reports = await (await stub.fetch(new Request(`https://dummy/api/illusts/report?key=${ADMIN_KEY}`))).json();
+
+      const repHtml = reports.length === 0
+        ? "<p>現在、違反通報はありません。</p>"
+        : reports.map((r) => `
+            <div class="rep-card" data-kw="${(r.illustTitle + " " + r.category + " " + r.detail + " " + r.reporterUid + " " + r.targetUid + " " + r.targetUsername).toLowerCase().replace(/"/g, "&quot;")}" style="background:#fff;border:2px solid #ef9a9a;border-radius:12px;padding:14px;margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;">
+                <span>通報日時：${r.date}</span>
+                <span style="background:#ffebee;color:#c62828;padding:2px 8px;border-radius:6px;font-weight:bold;">${r.category.replace(/</g, "&lt;")}</span>
+              </div>
+              <div style="font-weight:bold;font-size:15px;margin-bottom:4px;">🎨 対象作品：${r.illustTitle.replace(/</g, "&lt;")}</div>
+              <div style="font-size:12px;margin-bottom:6px;">🔗 対象ページ：<a href="/illust_detail.html?id=${encodeURIComponent(r.illustId)}" target="_blank">/illust_detail.html?id=${r.illustId}</a></div>
+              <div style="font-size:12px;background:#f5f5f5;padding:8px;border-radius:6px;margin-bottom:6px;">
+                <div><strong>通報された会員ID：</strong>${r.targetUid.replace(/</g, "&lt;")}（${r.targetUsername.replace(/</g, "&lt;")}）</div>
+                <div><strong>通報した会員ID：</strong>${r.reporterUid.replace(/</g, "&lt;")}（${r.reporterUsername.replace(/</g, "&lt;")}）</div>
+              </div>
+              <div style="white-space:pre-wrap;font-size:13px;background:#fff8f8;border:1px solid #ffcdd2;padding:10px;border-radius:6px;margin-bottom:10px;">${r.detail.replace(/</g, "&lt;")}</div>
+              <div style="display:flex;gap:8px;">
+                <button type="button" onclick="purgeIllustPage('${r.illustId}','${r.illustTitle.replace(/'/g, "\\'")}')" style="flex:1;background:#c62828;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;">🔥 画像ページを完全削除する</button>
+                <button type="button" onclick="dismissReport('${r.id}')" style="background:#616161;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;">通報ログのみ消去</button>
+              </div>
+            </div>
+          `).join("");
+
+      return new Response(
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>通報センター</title></head><body style="font-family:sans-serif;background:#f4f4f4;padding:20px;max-width:720px;margin:0 auto;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+            <h1 style="margin:0;font-size:20px;color:#c62828;">🚨 通報センター（全${reports.length}件・新着順）</h1>
+            <a href="/admin?key=${ADMIN_KEY}" style="background:#333;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:13px;">← 管理トップへ</a>
+          </div>
+          <input type="text" id="repSearchBox" oninput="filterReports()" placeholder="作品名・カテゴリー・会員ID・内容で検索" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:16px;font-size:14px;">
+          ${repHtml}
+          <script>
+            function filterReports(){const kw=document.getElementById("repSearchBox").value.toLowerCase().trim();document.querySelectorAll(".rep-card").forEach(c=>{c.style.display=(!kw||c.dataset.kw.includes(kw))?"block":"none";});}
+            async function purgeIllustPage(illustId,title){if(!confirm("対象の画像ページ「"+title+"」をサーバーから完全に抹消しますか？（元に戻せません）"))return;const r=await fetch("/api/illusts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"admin_delete",key:"${ADMIN_KEY}",id:illustId})});if(r.ok)alert("画像ページを完全に削除しました！");}
+            async function dismissReport(repId){if(!confirm("この通報ログを消去しますか？"))return;const r=await fetch("/api/illusts/report",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete_report",key:"${ADMIN_KEY}",id:repId})});if(r.ok)location.reload();}
+          </script>
+        </body></html>`,
+        { headers: { "Content-Type": "text/html; charset=utf-8" } }
+      );
+    }
+
 
     // ★会員専用ページ（URL: /my_page_会員の名前）
     if (url.pathname.startsWith("/my_page_")) {
