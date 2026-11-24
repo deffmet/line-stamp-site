@@ -895,13 +895,82 @@ export default {
 
       const roleMap = { client: "依頼者", creator: "クリエイター", both: "依頼者・クリエイター両方" };
       const safeName = member.username.replace(/</g, "&lt;");
+      const roleMap = { client: "依頼者", creator: "クリエイター", both: "依頼者・クリエイター両方" };
+      const safeName = member.username.replace(/</g, "&lt;");
       const safeRole = roleMap[member.role] || "会員";
+      const memberIllusts = await (await stub.fetch(new Request(`https://dummy/api/illusts?author=${encodeURIComponent(member.username)}`))).json();
+
+      const galleryHtml = memberIllusts.length === 0
+        ? `<div class="gallery-empty">まだ投稿されたスタンプイラストはありません。</div>`
+        : `<div class="mp-grid">` + memberIllusts.map((il) => `
+            <div class="mp-card">
+              <button type="button" class="mp-del-btn" data-owner-uid="${member.uid}" onclick="deleteMyIllust(event, '${il.id}', '${il.title.replace(/'/g, "\\'")}')" title="作品を削除">🗑️</button>
+              <a href="/illust_detail.html?id=${encodeURIComponent(il.id)}" class="mp-link">
+                <img src="${il.mainImage}" class="mp-thumb" alt="${il.title.replace(/"/g, "&quot;")}" loading="lazy">
+                <div class="mp-name">${il.title.replace(/</g, "&lt;")}</div>
+              </a>
+            </div>
+          `).join("") + `</div>`;
 
       return new Response(
-        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeName} さんの会員ページ | HookupStickers</title><link rel="icon" href="/icon.png?v=3" type="image/png"><style>body{font-family:sans-serif;background:#fff8f0;margin:0;padding:20px;color:#2b1d12}.wrap{max-width:720px;margin:0 auto}.card{background:#fff;border:1px solid #ffe0b2;border-radius:16px;padding:28px;box-shadow:0 4px 14px rgba(230,81,0,0.08);margin-bottom:20px}.badge{display:inline-block;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;font-size:12px;font-weight:bold;padding:4px 12px;border-radius:20px;margin-bottom:8px}.title{font-size:24px;font-weight:bold;margin:0 0 8px}.url-box{background:#fff8f0;border:1px solid #ffe0b2;padding:10px 14px;border-radius:8px;font-size:12px;color:#5d4037;word-break:break-all;margin-top:12px}.gallery-empty{border:2px dashed #ffcc80;border-radius:12px;padding:40px 20px;text-align:center;color:#8d6e63;font-size:14px}.nav-links{display:flex;gap:12px;justify-content:center;margin-top:20px}.btn{display:inline-block;padding:10px 20px;border-radius:20px;text-decoration:none;font-weight:bold;font-size:14px;background:#e65100;color:#fff}.btn-sub{background:#3e2723}</style></head><body><div class="wrap"><div class="card"><span class="badge">${safeRole}</span><h1 class="title">👤 ${safeName} さんのマイページ</h1><p style="font-size:14px;color:#795548;margin:0;">登録日：${member.date || "登録済み"}</p><div class="url-box">専用URL：${url.origin}/my_page_${encodeURIComponent(member.username)}</div></div><div class="card"><h2 style="font-size:18px;margin-top:0;">🎨 投稿スタンプイラスト（240×240px）</h2><div class="gallery-empty">投稿イラスト機能は現在準備中です。<br>今後のアップデートでこちらに240×240pxのスタンプ作品が並びます！</div></div><div class="nav-links"><a href="/" class="btn">トップページへ</a><a href="/login.html" class="btn btn-sub">会員設定・区分変更</a></div></div></body></html>`,
+        `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeName} さんの会員ページ | HookupStickers</title><link rel="icon" href="/icon.png?v=5" type="image/png"><style>
+          body{font-family:sans-serif;background:#fff8f0;margin:0;padding:0 16px 40px;color:#2b1d12}
+          .wrap{max-width:960px;margin:0 auto}
+          .profile-card{background:#fff;border:1px solid #ffe0b2;border-radius:16px;padding:16px 20px;box-shadow:0 4px 14px rgba(230,81,0,0.08);margin:16px 0 20px;z-index:50}
+          @media (max-width: 768px){.profile-card{position:sticky;top:0;margin:0 -16px 16px;border-radius:0 0 16px 16px;border-top:none;padding:12px 16px}}
+          .badge{display:inline-block;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;font-size:11px;font-weight:bold;padding:3px 10px;border-radius:20px;margin-bottom:4px}
+          .title{font-size:20px;font-weight:bold;margin:0 0 4px}
+          .url-box{background:#fff8f0;border:1px solid #ffe0b2;padding:6px 10px;border-radius:8px;font-size:11px;color:#5d4037;word-break:break-all;margin-top:8px}
+          .section-card{background:#fff;border:1px solid #ffe0b2;border-radius:16px;padding:18px;margin-bottom:20px}
+          .mp-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+          @media (max-width: 768px){.mp-grid{grid-template-columns:repeat(3,1fr);gap:8px}}
+          .mp-card{position:relative;background:#fffdf9;border:1px solid #ffe0b2;border-radius:12px;padding:6px}
+          .mp-link{text-decoration:none;color:inherit;display:block}
+          .mp-thumb{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:8px;display:block}
+          .mp-name{font-size:11px;font-weight:bold;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+          .mp-del-btn{display:none;position:absolute;top:4px;right:4px;z-index:5;background:rgba(198,40,40,0.9);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:11px;line-height:22px;padding:0;cursor:pointer;text-align:center}
+          .gallery-empty{border:2px dashed #ffcc80;border-radius:12px;padding:36px 16px;text-align:center;color:#8d6e63;font-size:13px}
+          .nav-links{display:flex;gap:12px;justify-content:center;margin-top:20px}
+          .btn{display:inline-block;padding:10px 20px;border-radius:20px;text-decoration:none;font-weight:bold;font-size:14px;background:#e65100;color:#fff}
+          .btn-sub{background:#3e2723}
+        </style></head><body><div class="wrap">
+          <div class="profile-card">
+            <span class="badge">${safeRole}</span>
+            <h1 class="title">👤 ${safeName} さんのマイページ</h1>
+            <p style="font-size:12px;color:#795548;margin:0;">投稿作品数：${memberIllusts.length}件 ｜ 登録日：${member.date || "登録済み"}</p>
+            <div class="url-box">専用URL：${url.origin}/my_page_${encodeURIComponent(member.username)}</div>
+          </div>
+          <div class="section-card">
+            <h2 style="font-size:17px;margin:0 0 14px;">🎨 投稿スタンプイラスト一覧（全${memberIllusts.length}件）</h2>
+            ${galleryHtml}
+          </div>
+          <div class="nav-links"><a href="/" class="btn">トップページへ</a><a href="/post_illust.html" class="btn btn-sub">＋ 新しく投稿する</a></div>
+        </div>
+        <script>
+          let loginUser = null;
+          try { loginUser = JSON.parse(localStorage.getItem("site_user") || "null"); } catch(e) {}
+          if (loginUser && loginUser.uid) {
+            document.querySelectorAll(".mp-del-btn").forEach(btn => {
+              if (btn.dataset.ownerUid === loginUser.uid) btn.style.display = "block";
+            });
+          }
+          async function deleteMyIllust(e, id, title) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!confirm("【確認】作品「" + title + "」を削除しますか？\\n\\n※一度削除するとデータを元に戻すことはできません。\\n本当に削除する場合は「OK」、取り消す場合は「キャンセル」を押してください。")) return;
+            const res = await fetch("/api/illusts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "user_delete", id: id, uid: loginUser.uid })
+            });
+            if (res.ok) { alert("作品を削除しました。"); location.reload(); }
+            else { alert("削除に失敗しました。"); }
+          }
+        </script></body></html>`,
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
     }
+
 
     // ★リアルタイムユーザー名重複チェックAPI
     if (url.pathname === "/api/check-username") {
