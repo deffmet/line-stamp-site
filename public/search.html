@@ -87,6 +87,17 @@
     var gridEl = document.getElementById("illustGrid");
     countEl.textContent = "検索中...";
 
+    // 現在の検索状態をブラウザURLとセッションに保存（詳細画面からそのまま戻れるようにする）
+    var stateParams = new URLSearchParams();
+    if (q) stateParams.set("q", q);
+    if (currentTag) stateParams.set("tag", currentTag);
+    if (sort && sort !== "newest") stateParams.set("sort", sort);
+    var queryStr = stateParams.toString();
+    if (history.replaceState) {
+      history.replaceState(null, "", "search.html" + (queryStr ? "?" + queryStr : ""));
+    }
+    sessionStorage.setItem("last_illust_search", queryStr);
+
     var url = "/api/illusts?q=" + encodeURIComponent(q) + "&tag=" + encodeURIComponent(currentTag) + "&sort=" + encodeURIComponent(sort);
     var res = await fetch(url);
     var items = await res.json();
@@ -98,7 +109,8 @@
     }
 
     gridEl.innerHTML = items.map(function(item) {
-      return '<a href="illust_detail.html?id=' + encodeURIComponent(item.id) + '" class="illust-card">' +
+      var detailHref = "illust_detail.html?id=" + encodeURIComponent(item.id) + (queryStr ? "&from_search=" + encodeURIComponent(queryStr) : "&from_search=1");
+      return '<a href="' + detailHref + '" class="illust-card">' +
         '<div class="thumb-box"><img src="' + item.mainImage + '" alt="' + item.title.replace(/"/g, "&quot;") + '" loading="lazy"></div>' +
         '<div class="card-title">' + item.title.replace(/</g, "&lt;") + '</div>' +
         '<div class="card-author">👤 ' + item.username.replace(/</g, "&lt;") + '</div>' +
@@ -111,8 +123,12 @@
     runSearch();
   });
 
+  if (params.get("sort")) {
+    document.getElementById("sortSelect").value = params.get("sort");
+  }
   updateTagBadge();
   runSearch();
+
 </script>
 </body>
 </html>
