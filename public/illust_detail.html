@@ -28,6 +28,16 @@
   label{display:block;font-size:12px;font-weight:bold;color:#5d4037;margin:10px 0 4px}
   input[type="text"],textarea{width:100%;padding:10px;border:1px solid #ffcc80;border-radius:8px;box-sizing:border-box;font-size:14px}
   .btn-save{width:100%;margin-top:14px;background:#e65100;color:#fff;border:none;padding:12px;border-radius:20px;font-size:15px;font-weight:bold;cursor:pointer}
+
+  html,body{max-width:100%;overflow-x:hidden}
+  .card{box-sizing:border-box;width:100%;overflow:hidden}
+  .edit-pick-btn{display:inline-block;width:100%;box-sizing:border-box;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;padding:7px 4px;border-radius:8px;font-size:11px;font-weight:bold;cursor:pointer;text-align:center}
+  .edit-sub-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px;width:100%}
+  .edit-sub-col{display:flex;flex-direction:column;align-items:center;min-width:0}
+  .edit-sub-thumb{width:100%;aspect-ratio:1/1;object-fit:contain;border:1px solid #ffe0b2;border-radius:8px;background:#fffdf9;margin-top:6px;box-sizing:border-box}
+
+
+
 </style>
 </head>
 <body>
@@ -113,7 +123,7 @@
       '<h2 class="illust-title">' + item.title.replace(/</g, "&lt;") + '</h2>' +
       (item.description ? '<div class="illust-desc">' + item.description.replace(/</g, "&lt;") + '</div>' : '') +
       tagsHtml +
-      (isOwner ?
+            (isOwner ?
         '<div class="edit-box" id="editBox">' +
           '<h3 style="margin:0 0 8px;color:#e65100;font-size:16px;">✏️ 投稿内容を編集する（100×100〜500×500px正方形のみ）</h3>' +
           '<label>作品タイトル（必須）</label>' +
@@ -123,16 +133,59 @@
           '<label>ハッシュタグ（スペース区切り）</label>' +
           '<input type="text" id="editTags" value="' + (item.tags || []).map(function(t){return "#" + t;}).join(" ").replace(/"/g, "&quot;") + '">' +
           '<label>メイン画像を差し替える場合のみ選択（100〜500px正方形）</label>' +
-          '<input type="file" id="editMainFile" accept="image/png,image/jpeg,image/webp">' +
+          '<input type="file" id="editMainFile" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="previewEditMain(this)">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;">' +
+            '<button type="button" class="edit-pick-btn" style="width:auto;padding:7px 14px;" onclick="document.getElementById(\'editMainFile\').click()">🖼️ 画像を選択</button>' +
+            '<span id="editMainStatus" style="font-size:11px;color:#795548;">画像未選択</span>' +
+          '</div>' +
           '<label>サブ画像 1〜3 を差し替える場合のみ選択（100〜500px正方形）</label>' +
-          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px;">' +
-            '<input type="file" id="editSub1" accept="image/png,image/jpeg,image/webp" style="font-size:10px;">' +
-            '<input type="file" id="editSub2" accept="image/png,image/jpeg,image/webp" style="font-size:10px;">' +
-            '<input type="file" id="editSub3" accept="image/png,image/jpeg,image/webp" style="font-size:10px;">' +
+          '<div class="edit-sub-grid">' +
+            '<div class="edit-sub-col">' +
+              '<input type="file" id="editSub1" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="previewEditSub(1,this)">' +
+              '<button type="button" class="edit-pick-btn" onclick="document.getElementById(\'editSub1\').click()">画像を選択</button>' +
+              '<img id="editSubPrev1" src="' + displaySubs[0] + '" class="edit-sub-thumb" alt="サブ1">' +
+            '</div>' +
+            '<div class="edit-sub-col">' +
+              '<input type="file" id="editSub2" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="previewEditSub(2,this)">' +
+              '<button type="button" class="edit-pick-btn" onclick="document.getElementById(\'editSub2\').click()">画像を選択</button>' +
+              '<img id="editSubPrev2" src="' + displaySubs[1] + '" class="edit-sub-thumb" alt="サブ2">' +
+            '</div>' +
+            '<div class="edit-sub-col">' +
+              '<input type="file" id="editSub3" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="previewEditSub(3,this)">' +
+              '<button type="button" class="edit-pick-btn" onclick="document.getElementById(\'editSub3\').click()">画像を選択</button>' +
+              '<img id="editSubPrev3" src="' + displaySubs[2] + '" class="edit-sub-thumb" alt="サブ3">' +
+            '</div>' +
           '</div>' +
           '<button type="button" class="btn-save" id="saveEditBtn" onclick="saveEdit()">変更を保存する</button>' +
         '</div>' : '');
   }
+
+  async function previewEditMain(input) {
+    var f = input.files && input.files.item(0);
+    var st = document.getElementById("editMainStatus");
+    if (!f) { st.textContent = "画像未選択"; return; }
+    try {
+      await validateAndCompressSquare(f);
+      st.textContent = f.name;
+    } catch (err) {
+      alert("⚠️ " + err);
+      input.value = "";
+      st.textContent = "画像未選択";
+    }
+  }
+
+  async function previewEditSub(idx, input) {
+    var f = input.files && input.files.item(0);
+    if (!f) return;
+    try {
+      var url = await validateAndCompressSquare(f);
+      document.getElementById("editSubPrev" + idx).src = url;
+    } catch (err) {
+      alert("⚠️ サブ" + idx + "：" + err);
+      input.value = "";
+    }
+  }
+
 
   function toggleEdit() {
     var box = document.getElementById("editBox");
