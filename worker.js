@@ -138,67 +138,175 @@ export class OnlineCounter {
         });
       }
     }
-       // 4-4. 会員と紐づくショート動画掲載データ（/api/short-ads）
-       // 4-4. 会員と紐づくショート動画掲載データ（最大1000件・拒否理由・完全削除対応）
+    // 4-4. ショート動画掲載データ・キュー自動切り替え・クリック計測API
     if (url.pathname === "/api/short-ads") {
+      // アクティブ掲載枠の期限（7日間）＆クリック上限チェック＆自動バトンタッチ関数
+      const syncShortAdQueue = async () => {
+        let list = (await this.state.storage.get("short_ads")) || [];
+        const now = Date.now();
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+        let changed = false;
+
+        // 1. 現在掲載中（approved）の期限切れ・上限到達チェック
+        let activeAd = list.find((item) => item.status === "approved");
+        if (activeAd) {
+          const startedAt = Number(activeAd.startedAt || now);
+          if (!activeAd.startedAt) {
+            activeAd.startedAt = now;
+            changed = true;
+          }
+          const isExpired = (now - startedAt) >= SEVEN_DAYS_MS;
+          const isMaxed = Number(activeAd.clicks || 0) >= Number(activeAd.limit || 1000);
+          if (isExpired || isMaxed) {
+            activeAd.status = "completed";
+            activeAd.endedReason = isMaxed ? "クリック上限到達" : "掲載期間（7日間）満了";
+            activeAd.endedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+            activeAd = null;
+            changed = true;
+          }
+        }
+
+        // 2. 掲載中が空なら、決済済み予約（queued）の中から一番古いものを自動昇格
+        if (!activeAd) {
+          const queuedAds = list
+            .filter((item) => item.status === "queued")
+            .sort((a, b) => Number(a.paidAt || a.id) - Number(b.paidAt || b.id));
+          if (queuedAds.length > 0) {
+            const nextAd = queuedAds[0];
+            nextAd.status = "approved";
+            nextAd.clicks = 0;
+            nextAd.startedAt = now;
+            nextAd.startedDate = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+            activeAd = nextAd;
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          await this.state.storage.put("short_ads", list);
+        }
+        return { list, activeAd };
+      };
+
+      if (request.method === "GET") {
+        const { list, activeAd } = await syncShortAdQueue();
+        const mode = url.searchParams.get("mode");
+        const uid = url.searchParams.get("uid");
+
+        // トップページ表示用（現在掲載中の1件、なければ null で short1.mp4 へ戻る）
+        if (mode === "active") {
+          if (!activeAd) return new Response(JSON.stringify(null), { headers: { "Content-Type": "application/json" } });
+          const videoData = await this.state.storage.get("short_ad_video_" + activeAd.id);
+          return new Response(JSON.stringify({ ...activeAd, videoData: videoData || "" }), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (uid) {
+          const myAds = list.filter((item) => item.uid === uid);
+          return new Response(JSON.stringify(myAds), { headers: { "Content-Type": "application/json" } });
+        }
+        if (url.searchParams.get("key") !== ADMIN_KEY) {
+          return new Response("Unauthorized", { status: 401 });
+        }
+        return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
+      }
+
       if (request.method === "POST") {
         const body = await request.json().catch(() => ({}));
         let list = (await this.state.storage.get("short_ads")) || [];
 
+        // 1クリック（0.1円）カウント（1端末1日1回ボット対策付き）
+        if (body.action === "click") {
+          const targetId = String(body.id || "");
+          const deviceId = String(body.deviceId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+          if (!targetId || !deviceId || deviceId.length < 8) {
+            return new Response(JSON.stringify({ ok: false }), { status: 400 });
+          }
+          const todayJst = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" });
+          const clickKey = "adclk_" + targetId + "_" + deviceId + "_" + todayJst;
+          const alreadyClicked = await this.state.storage.get(clickKey);
+          const target = list.find((item) => String(item.id) === targetId && item.status === "approved");
+          if (target && !alreadyClicked) {
+            target.clicks = Number(target.clicks || 0) + 1;
+            await this.state.storage.put(clickKey, 1);
+            await this.state.storage.put("short_ads", list);
+          }
+          await syncShortAdQueue();
+          return new Response(JSON.stringify({ ok: true, clicks: target ? target.clicks : 0 }), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        // ステータス更新（承諾・決済完了・テスト決済完了・不許可）
         if (body.action === "set_status") {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
           const target = list.find((item) => String(item.id) === String(body.id));
           if (target) {
-            const allowed = ["payment_pending", "approved", "rejected"];
-            target.status = allowed.includes(body.status) ? body.status : "rejected";
-            target.rejectReason = target.status === "rejected" ? String(body.reason || "").slice(0, 200) : "";
-            if (body.stripeUrl !== undefined) {
-              target.stripeUrl = String(body.stripeUrl || "").trim().slice(0, 300);
+            if (body.status === "paid" || body.status === "approved") {
+              target.status = "queued";
+              target.paidAt = Date.now();
+              target.clicks = 0;
+              target.rejectReason = "";
+            } else if (body.status === "payment_pending") {
+              target.status = "payment_pending";
+              if (body.stripeUrl !== undefined) {
+                target.stripeUrl = String(body.stripeUrl || "").trim().slice(0, 300);
+              }
+            } else {
+              target.status = "rejected";
+              target.rejectReason = String(body.reason || "").slice(0, 200);
             }
             target.reviewedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
             await this.state.storage.put("short_ads", list);
+            await syncShortAdQueue();
           }
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
 
-
+        // 申請削除（動画データも同時削除）
         if (body.action === "delete") {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
-          list = list.filter((item) => String(item.id) !== String(body.id));
+          const delId = String(body.id);
+          list = list.filter((item) => String(item.id) !== delId);
+          await this.state.storage.delete("short_ad_video_" + delId);
           await this.state.storage.put("short_ads", list);
-        
+          await syncShortAdQueue();
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
-      }
+        }
 
-        if (!body.uid) return new Response(JSON.stringify({ ok: false, error: "ログインが必要です" }), { status: 401 });
-        list.unshift({
-          id: Date.now(),
+        // 新規申し込み（720×1280px MP4動画データ保存）
+        if (!body.uid || !body.title || !body.url) {
+          return new Response(JSON.stringify({ ok: false, error: "必須項目が不足しています" }), { status: 400 });
+        }
+        const videoBase64 = String(body.videoData || "");
+        if (!videoBase64.startsWith("data:video/mp4") || videoBase64.length > 3500000) {
+          return new Response(JSON.stringify({ ok: false, error: "MP4動画は2.5MB以内の720×1280pxファイルのみ対応しています" }), { status: 400 });
+        }
+
+        const newId = Date.now();
+        await this.state.storage.put("short_ad_video_" + newId, videoBase64);
+
+        const newItem = {
+          id: newId,
           date: new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }),
           uid: String(body.uid),
           username: String(body.username || ""),
           email: String(body.email || ""),
-          title: String(body.title || "").slice(0, 100),
-          url: String(body.url || "").trim().slice(0, 300),
+          title: String(body.title).slice(0, 60),
           limit: Number(body.limit || 1000),
-          clicks: 0,
+          url: String(body.url).slice(0, 300),
+          mp4Info: String(body.mp4Info || "720×1280px MP4"),
           status: "pending",
           rejectReason: "",
-          mp4Info: String(body.mp4Info || ""),
-        });
-        await this.state.storage.put("short_ads", list.slice(0, 1000));
-        return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
-      }
-
-      if (request.method === "GET") {
-        const list = (await this.state.storage.get("short_ads")) || [];
-        const uid = url.searchParams.get("uid");
-        if (uid) {
-          return new Response(JSON.stringify(list.filter((i) => i.uid === uid)), { headers: { "Content-Type": "application/json" } });
-        }
-        if (url.searchParams.get("key") !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
-        return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
+          clicks: 0,
+        };
+        list.unshift(newItem);
+        await this.state.storage.put("short_ads", list.slice(0, 300));
+        return new Response(JSON.stringify({ ok: true, item: newItem }), { headers: { "Content-Type": "application/json" } });
       }
     }
+
 
     // 4-5. 企画依頼アイデアの保存・取得・削除（/api/plan-requests）
     if (url.pathname === "/api/plan-requests") {
