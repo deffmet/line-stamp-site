@@ -141,31 +141,42 @@
   }
   function checkMp4File(file) {
     return new Promise(function(resolve, reject) {
-      if (!file) return reject("MP4動画ファイルを選択してください。");
-      if (file.type !== "video/mp4" && !file.name.toLowerCase().endsWith(".mp4")) {
-        return reject("MP4形式のファイルのみアップロードできます。");
+      if (!file) return reject("short動画ファイル（MP4）を選択してください。");
+      var maxBytes = 2.5 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        return reject("動画容量が大きすぎます（現在 " + (file.size / 1024 / 1024).toFixed(2) + "MB）。2.5MB以内の軽量MP4にしてください。");
       }
-      if (file.size > 25 * 1024 * 1024) {
-        return reject("動画容量が25MBを超えています（現在 " + (file.size / 1024 / 1024).toFixed(1) + "MB）。");
-      }
-      var tempUrl = URL.createObjectURL(file);
-      var v = document.createElement("video");
-      v.preload = "metadata";
-      v.onloadedmetadata = function() {
-        var w = v.videoWidth, h = v.videoHeight;
-        URL.revokeObjectURL(tempUrl);
+      var isMp4Type = (file.type === "video/mp4") || /\.mp4$/i.test(file.name);
+      if (!isMp4Type) return reject("MP4形式（.mp4）の動画ファイルのみアップロード可能です。");
+
+      var objUrl = URL.createObjectURL(file);
+      var video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = function() {
+        var w = video.videoWidth;
+        var h = video.videoHeight;
+        URL.revokeObjectURL(objUrl);
         if (w !== 720 || h !== 1280) {
-          return reject("動画サイズが規定外です（現在 " + w + "×" + h + "px）。720×1280pxにしてください。");
+          return reject("動画解像度は「フレーム幅 720px × フレーム高 1280px」のみ受付可能です（現在 " + w + "×" + h + "px）。");
         }
-        resolve(w + "×" + h + "px / " + (file.size / 1024 / 1024).toFixed(2) + "MB");
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          resolve({
+            info: w + "×" + h + "px (" + (file.size / 1024 / 1024).toFixed(2) + "MB)",
+            videoData: ev.target.result
+          });
+        };
+        reader.onerror = function() { reject("動画データの読み込みに失敗しました。"); };
+        reader.readAsDataURL(file);
       };
-      v.onerror = function() {
-        URL.revokeObjectURL(tempUrl);
-        reject("動画の読み込みに失敗しました。正しいMP4を選択してください。");
+      video.onerror = function() {
+        URL.revokeObjectURL(objUrl);
+        reject("動画ファイルを読み込めませんでした。正しいMP4ファイルか確認してください。");
       };
-      v.src = tempUrl;
+      video.src = objUrl;
     });
   }
+
   function renderLineChart(items) {
     var area = document.getElementById("chartArea");
     var ordered = items.slice().reverse();
@@ -194,13 +205,18 @@
     }
     listEl.innerHTML = list.map(function(item) {
       var feeYen = Math.round(Number(item.limit || 1000) * 0.1);
-      var st = item.status === "approved"
-        ? "🟢 掲載中（決済完了）"
-        : item.status === "payment_pending"
-        ? "💳 決済処理中"
-        : item.status === "rejected"
-        ? "❌ 不許可"
-        : "⏳ 審査中";
+    var st = item.status === "approved"
+      ? "🟢 トップ掲載中"
+      : item.status === "queued"
+      ? "📅 掲載予約待ち（決済済み）"
+      : item.status === "payment_pending"
+      ? "💳 決済処理中"
+      : item.status === "completed"
+      ? "🏁 掲載終了"
+      : item.status === "rejected"
+      ? "❌ 不許可"
+      : "⏳ 審査中";
+
 
       var reasonHtml = (item.status === "rejected" && item.rejectReason)
         ? '<div style="margin-top:6px;padding:6px 10px;background:#ffebee;color:#c62828;border-radius:6px;font-size:12px;font-weight:bold;">不許可理由：' + item.rejectReason.replace(/</g, "&lt;") + '</div>'
@@ -247,20 +263,22 @@
     btn.textContent = "確認・送信中...";
 
     try {
-      var mp4Info = await checkMp4File(file);
-      var res = await fetch("/api/short-ads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          uid: currentUser.uid,
-          username: currentUser.username,
-          email: currentUser.email,
-          title: title,
-          limit: Number(document.getElementById("adLimit").value),
-          url: url,
-          mp4Info: mp4Info
-        })
-      });
+         var mp4Res = await checkMp4File(file);
+    var res = await fetch("/api/short-ads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        uid: currentUser.uid,
+        username: currentUser.username,
+        email: currentUser.email,
+        title: title,
+        limit: Number(document.getElementById("adLimit").value),
+        url: url,
+        mp4Info: mp4Res.info,
+        videoData: mp4Res.videoData
+      })
+    });
+
       var data = await res.json();
       if (!res.ok || !data.ok) return showFormError(data.error || "送信に失敗しました。");
 
