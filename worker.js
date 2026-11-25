@@ -194,13 +194,42 @@ export class OnlineCounter {
         const uid = url.searchParams.get("uid");
 
         // トップページ表示用（現在掲載中の1件、なければ null で short1.mp4 へ戻る）
+            // MP4動画ストリーミング配信（/api/short-ads?mode=video&id=〇〇）
+        if (mode === "video") {
+          const vidId = url.searchParams.get("id");
+          const chunkCount = Number((await this.state.storage.get("short_ad_chunks_" + vidId)) || 0);
+          let fullDataUrl = "";
+          if (chunkCount > 0) {
+            const parts = await Promise.all(
+              Array.from({ length: chunkCount }, (_, i) => this.state.storage.get(`short_ad_vid_${vidId}_${i}`))
+            );
+            fullDataUrl = parts.join("");
+          } else {
+            fullDataUrl = (await this.state.storage.get("short_ad_video_" + vidId)) || "";
+          }
+          if (!fullDataUrl.startsWith("data:video/mp4")) {
+            return new Response("Not Found", { status: 404 });
+          }
+          const b64 = fullDataUrl.split(",")[1] || "";
+          const binStr = atob(b64);
+          const bytes = new Uint8Array(binStr.length);
+          for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+          return new Response(bytes, {
+            headers: { "Content-Type": "video/mp4", "Cache-Control": "public, max-age=3600" },
+          });
+        }
+
+        // トップページ表示用（現在掲載中の1件、なければ null で short1.mp4 へ戻る）
         if (mode === "active") {
           if (!activeAd) return new Response(JSON.stringify(null), { headers: { "Content-Type": "application/json" } });
-          const videoData = await this.state.storage.get("short_ad_video_" + activeAd.id);
-          return new Response(JSON.stringify({ ...activeAd, videoData: videoData || "" }), {
+          return new Response(JSON.stringify({
+            ...activeAd,
+            videoData: "/api/short-ads?mode=video&id=" + activeAd.id
+          }), {
             headers: { "Content-Type": "application/json" },
           });
         }
+
 
         if (uid) {
           const myAds = list.filter((item) => item.uid === uid);
@@ -270,22 +299,32 @@ export class OnlineCounter {
           const delId = String(body.id);
           list = list.filter((item) => String(item.id) !== delId);
           await this.state.storage.delete("short_ad_video_" + delId);
+          const cCount = Number((await this.state.storage.get("short_ad_chunks_" + delId)) || 0);
+          for (let i = 0; i < cCount; i++) {
+            await this.state.storage.delete(`short_ad_vid_${delId}_${i}`);
+          }
+          await this.state.storage.delete("short_ad_chunks_" + delId);
           await this.state.storage.put("short_ads", list);
           await syncShortAdQueue();
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
 
-        // 新規申し込み（720×1280px MP4動画データ保存）
+        // 新規申し込み（最大25MB・720×1280px MP4動画をチャンク分割保存）
         if (!body.uid || !body.title || !body.url) {
           return new Response(JSON.stringify({ ok: false, error: "必須項目が不足しています" }), { status: 400 });
         }
         const videoBase64 = String(body.videoData || "");
-        if (!videoBase64.startsWith("data:video/mp4") || videoBase64.length > 3500000) {
-          return new Response(JSON.stringify({ ok: false, error: "MP4動画は2.5MB以内の720×1280pxファイルのみ対応しています" }), { status: 400 });
+        if (!videoBase64.startsWith("data:video/mp4") || videoBase64.length > 36000000) {
+          return new Response(JSON.stringify({ ok: false, error: "MP4動画は25MB以内の720×1280pxファイルのみ対応しています" }), { status: 400 });
         }
 
         const newId = Date.now();
-        await this.state.storage.put("short_ad_video_" + newId, videoBase64);
+        const CHUNK_SIZE = 900000;
+        const totalChunks = Math.ceil(videoBase64.length / CHUNK_SIZE);
+        for (let i = 0; i < totalChunks; i++) {
+          await this.state.storage.put(`short_ad_vid_${newId}_${i}`, videoBase64.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE));
+        }
+        await this.state.storage.put("short_ad_chunks_" + newId, totalChunks);
 
         const newItem = {
           id: newId,
