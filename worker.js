@@ -1186,16 +1186,6 @@ export default {
 
                   <button type="button" onclick="reviewShortAd('${ad.id}', 'rejected', ${feeYen})" style="background:#c62828;color:#fff;border:none;padding:8px 10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">❌ 不許可</button>
                   <button type="button" onclick="deleteShortAd('${ad.id}')" style="background:#424242;color:#fff;border:none;padding:8px 10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">🗑️ 削除</button>
-                async function setTestClicks(id, curClicks, limit) {
-  const val = prompt("【テスト用】新しいクリック数を半角数字で入力してください（上限：" + limit + "回）\n※上限以上を入力すると即座に掲載終了し、次の動画またはshort1.mp4へ自動切替されます。", String(curClicks));
-  if (val === null || val.trim() === "" || isNaN(Number(val))) return;
-  const res = await fetch("/api/short-ads", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "set_test_clicks", key: "${ADMIN_KEY}", id: id, clicks: Number(val) })
-  });
-  if (res.ok) location.reload();
-}
 
                 </div>
               </div>
@@ -1263,6 +1253,17 @@ export default {
             });
             if (res.ok) location.reload();
           }
+                    async function setTestClicks(id, curClicks, limit) {
+            const val = prompt("【テスト用】新しいクリック数を半角数字で入力してください（上限：" + limit + "回）\\n※上限以上を入力すると即座に掲載終了し、次の動画またはshort1.mp4へ自動切替されます。", String(curClicks));
+            if (val === null || val.trim() === "" || isNaN(Number(val))) return;
+            const res = await fetch("/api/short-ads", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "set_test_clicks", key: "${ADMIN_KEY}", id: id, clicks: Number(val) })
+            });
+            if (res.ok) location.reload();
+          }
+
         </script>
       `;
 
