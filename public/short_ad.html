@@ -69,7 +69,7 @@
   </div>
 
   <div class="order-card">
-    <h2 class="section-title">🎬 新しくショート動画に載せる（0.1円 / 1クリック）※2</h2>
+<h2>🎬 新しくショート動画に載せる（0.1円 / 1クリック）</h2>
     <div class="error-box" id="formErrorBox"></div>
     <form id="shortAdForm" novalidate>
       <div class="form-row">
@@ -78,7 +78,7 @@
           <input type="text" id="adTitle" placeholder="例：ねこの日常スタンプ紹介ショート">
         </div>
         <div>
-          <label>希望上限クリック数（0.1円単価）</label>
+<label for="adLimit">希望上限クリック数（0.1円単価） <span style="color:#e65100;font-weight:bold;">※2</span></label>
           <select id="adLimit" onchange="updatePricePreview()">
             <option value="1000">1,000クリックまで（100円分）</option>
             <option value="3000">3,000クリックまで（300円分）</option>
