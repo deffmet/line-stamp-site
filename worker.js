@@ -1120,19 +1120,77 @@ export default {
             `;
           }).join("");
 
+         const pendingAds = shortAdsList.filter(a => (a.status || "pending") === "pending").reverse();
+      const activeAndQueued = shortAdsList.filter(a => a.status === "approved" || a.status === "queued" || a.status === "payment_pending");
+      const finishedAds = shortAdsList.filter(a => a.status === "completed" || a.status === "rejected").slice(0, 10);
+      const displayAds = [...pendingAds, ...activeAndQueued, ...finishedAds];
+
+      const shortAdsHtml = displayAds.length === 0
+        ? "<p style='font-size:13px;color:#666;'>表示するショート動画申請はありません。</p>"
+        : displayAds.map(ad => {
+            const st = ad.status || "pending";
+            const feeYen = Math.round(Number(ad.limit || 1000) * 0.1);
+            const clicks = Number(ad.clicks || 0);
+            const limit = Number(ad.limit || 1000);
+            let remainText = "";
+            if (st === "approved" && ad.startedAt) {
+              const leftMs = Math.max(0, (7 * 24 * 60 * 60 * 1000) - (Date.now() - Number(ad.startedAt)));
+              const leftHours = Math.ceil(leftMs / (1000 * 60 * 60));
+              remainText = ` ｜ 残り約${leftHours}時間`;
+            }
+
+            const statusLabel = st === "approved"
+              ? "<span style='color:#2e7d32;font-weight:bold;'>🟢 トップ掲載中</span>"
+              : st === "queued"
+              ? "<span style='color:#6a1b9a;font-weight:bold;'>📅 掲載予約待ち（決済済み）</span>"
+              : st === "payment_pending"
+              ? "<span style='color:#1565c0;font-weight:bold;'>💳 決済処理中（お支払い待ち）</span>"
+              : st === "completed"
+              ? `<span style='color:#546e7a;font-weight:bold;'>🏁 掲載終了（${ad.endedReason || "完了"}）</span>`
+              : st === "rejected"
+              ? "<span style='color:#c62828;font-weight:bold;'>❌ 不許可</span>"
+              : "<span style='color:#e65100;font-weight:bold;'>⏳ 未決定（古い順優先）</span>";
+
+            return `
+              <div class="ad-req-card" data-status="${st}" data-search="${(ad.title + " " + ad.username + " " + ad.uid + " " + ad.id).toLowerCase().replace(/"/g, "&quot;")}" style="background:#fff;border:2px solid ${st === "approved" ? "#2e7d32" : st === "queued" ? "#8e24aa" : st === "pending" ? "#e65100" : "#ffcc80"};border-radius:12px;padding:14px;margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:4px;">
+                  <span style="font-size:11px;color:#777;">申請ID：<strong>${ad.id}</strong> ｜ ${ad.date}</span>
+                  <span>${statusLabel}</span>
+                </div>
+                <div style="font-weight:bold;font-size:15px;margin-bottom:4px;">🎬 ${ad.title.replace(/</g, "&lt;")}</div>
+                <div style="font-size:12px;background:#fff8f0;border:1px solid #ffe0b2;padding:6px 10px;border-radius:6px;margin-bottom:6px;">
+                  👤 <strong>申請会員：</strong><a href="/my_page_${encodeURIComponent(ad.username)}" target="_blank" style="color:#e65100;font-weight:bold;">${ad.username.replace(/</g, "&lt;")}</a>（UID: <code>${String(ad.uid || "").replace(/</g, "&lt;")}</code>）<br>
+                  📊 <strong>クリック消化：</strong><strong>${clicks.toLocaleString()} / ${limit.toLocaleString()} 回</strong>（${feeYen.toLocaleString()}円分）${remainText} ｜ ${ad.mp4Info || ""}
+                </div>
+                <div style="font-size:12px;margin-bottom:6px;word-break:break-all;">リンク先：<a href="${ad.url.replace(/"/g, "&quot;")}" target="_blank" style="color:#e65100;">${ad.url.replace(/</g, "&lt;")}</a></div>
+                ${ad.stripeUrl ? `<div style="font-size:11px;color:#1565c0;background:#e3f2fd;padding:5px 8px;border-radius:6px;margin-bottom:6px;word-break:break-all;">Stripe URL：${ad.stripeUrl.replace(/</g, "&lt;")}</div>` : ""}
+                ${st === "rejected" && ad.rejectReason ? `<div style="background:#ffebee;color:#c62828;font-size:12px;padding:6px 10px;border-radius:6px;margin-bottom:8px;">拒否理由：${ad.rejectReason.replace(/</g, "&lt;")}</div>` : ""}
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'payment_pending', ${feeYen})" style="flex:1;min-width:120px;background:#1565c0;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">✅ 承諾（決済待ちへ）</button>
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'paid', ${feeYen})" style="flex:1;min-width:120px;background:#2e7d32;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">💰 入金確認・掲載予約</button>
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'test_paid', ${feeYen})" style="flex:1;min-width:130px;background:#6a1b9a;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">🧪 テスト決済完了（挙動確認）</button>
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'rejected', ${feeYen})" style="background:#c62828;color:#fff;border:none;padding:8px 10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">❌ 不許可</button>
+                  <button type="button" onclick="deleteShortAd('${ad.id}')" style="background:#424242;color:#fff;border:none;padding:8px 10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">🗑️ 削除</button>
+                </div>
+              </div>
+            `;
+          }).join("");
+
       const latestNoticeHtml = `
         <div style="background:#fff3e0;border:2px solid #e65100;border-radius:12px;padding:16px;margin-bottom:24px;">
           <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;">
-            <h2 style="margin:0;color:#e65100;font-size:17px;">🔔 動画申請（未決定:${pendingAds.length}件 / 決済待ち:${payWaitAds.length}件）</h2>
+            <h2 style="margin:0;color:#e65100;font-size:17px;">🔔 動画申請・掲載キュー（未決定:${pendingAds.length}件）</h2>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <select id="tagFilterSelect" onchange="filterAdCards()" style="padding:6px 8px;border-radius:6px;border:1px solid #ffcc80;font-size:12px;">
                 <option value="all">すべて表示</option>
                 <option value="pending">⏳ 未決定のみ</option>
-                <option value="payment_pending">💳 決済処理中のみ</option>
-                <option value="approved">🟢 掲載中（決済完了）</option>
+                <option value="payment_pending">💳 決済処理中</option>
+                <option value="queued">📅 掲載予約待ち</option>
+                <option value="approved">🟢 トップ掲載中</option>
+                <option value="completed">🏁 掲載終了</option>
                 <option value="rejected">❌ 不許可</option>
               </select>
-              <input type="text" id="tagSearchInput" oninput="filterAdCards()" placeholder="タイトル・会員名・IDで検索" style="padding:6px 8px;border-radius:6px;border:1px solid #ffcc80;font-size:12px;width:150px;">
+              <input type="text" id="tagSearchInput" oninput="filterAdCards()" placeholder="タイトル・会員名・UID検索" style="padding:6px 8px;border-radius:6px;border:1px solid #ffcc80;font-size:12px;width:150px;">
             </div>
           </div>
           ${shortAdsHtml}
@@ -1150,24 +1208,28 @@ export default {
           async function reviewShortAd(id, status, feeYen) {
             let reason = "";
             let stripeUrl = undefined;
+            let sendStatus = status;
             if (status === "rejected") {
               reason = prompt("不許可（拒否）の理由を入力してください（会員画面に表示されます）：", "規約または動画基準を満たしていないため");
               if (reason === null) return;
             } else if (status === "payment_pending") {
-              stripeUrl = prompt("この申請（" + feeYen + "円）用の Stripe 決済リンクURL（https://stripe.com...）を入力してください：", "https://stripe.com");
+              stripeUrl = prompt("この申請（" + feeYen + "円）用の Stripe 決済リンクURLを入力してください：", "https://stripe.com");
               if (stripeUrl === null) return;
-            } else if (status === "approved") {
-              if (!confirm("Stripeでの入金（" + feeYen + "円）を確認済みですか？\\n「OK」を押すとトップページへの掲載が開始されます。")) return;
+            } else if (status === "paid") {
+              if (!confirm("Stripeでの入金（" + feeYen + "円）を確認済みですか？\\n空き枠があれば即座に掲載開始、掲載中があれば予約待ちキューに入ります。")) return;
+            } else if (status === "test_paid") {
+              if (!confirm("【テスト挙動確認】決済リンクなしで決済完了扱いとし、トップページ掲載（または予約キュー）へ反映しますか？")) return;
+              sendStatus = "paid";
             }
             const res = await fetch("/api/short-ads", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "set_status", key: "${ADMIN_KEY}", id: id, status: status, reason: reason, stripeUrl: stripeUrl })
+              body: JSON.stringify({ action: "set_status", key: "${ADMIN_KEY}", id: id, status: sendStatus, reason: reason, stripeUrl: stripeUrl })
             });
             if (res.ok) location.reload();
           }
           async function deleteShortAd(id) {
-            if (!confirm("この申請ログをサーバーと会員画面から完全に抹消しますか？（元に戻せません）")) return;
+            if (!confirm("この申請ログと動画データをサーバーから完全に抹消しますか？（元に戻せません）")) return;
             const res = await fetch("/api/short-ads", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
