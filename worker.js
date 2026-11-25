@@ -908,7 +908,8 @@ export default {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: "HookupStickers 運営事務局 <onboarding@resend.dev>",
+from: "HookupStickers 運営事務局 <noreply@hookupstickers.com>",
+
               to: [toEmail],
               subject: "【HookupStickers】違反通報の受付控え",
               text: mailText,
