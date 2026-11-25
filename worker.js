@@ -1082,43 +1082,7 @@ export default {
       const videoTapData = await (await stub.fetch(new Request(`https://dummy/api/video-tap?key=${ADMIN_KEY}`))).json();
             const shortAdsList = await (await stub.fetch(new Request(`https://dummy/api/short-ads?key=${ADMIN_KEY}`))).json();
         const pendingAds = shortAdsList.filter(a => (a.status || "pending") === "pending").reverse();
-      const payWaitAds = shortAdsList.filter(a => a.status === "payment_pending");
-      const decidedAds = shortAdsList.filter(a => a.status === "approved" || a.status === "rejected").slice(0, 10);
-      const displayAds = [...pendingAds, ...payWaitAds, ...decidedAds];
-
-      const shortAdsHtml = displayAds.length === 0
-        ? "<p style='font-size:13px;color:#666;'>表示するショート動画申請はありません。</p>"
-        : displayAds.map(ad => {
-            const st = ad.status || "pending";
-            const feeYen = Math.round(Number(ad.limit || 1000) * 0.1);
-            const statusLabel = st === "approved"
-              ? "<span style='color:#2e7d32;font-weight:bold;'>🟢 掲載中（決済完了）</span>"
-              : st === "payment_pending"
-              ? "<span style='color:#1565c0;font-weight:bold;'>💳 決済処理中（お支払い待ち）</span>"
-              : st === "rejected"
-              ? "<span style='color:#c62828;font-weight:bold;'>❌ 不許可</span>"
-              : "<span style='color:#e65100;font-weight:bold;'>⏳ 未決定（古い順優先）</span>";
-
-            return `
-              <div class="ad-req-card" data-status="${st}" data-search="${(ad.title + " " + ad.username + " " + ad.id).toLowerCase().replace(/"/g, "&quot;")}" style="background:#fff;border:2px solid ${st === "pending" ? "#e65100" : st === "payment_pending" ? "#1565c0" : "#ffcc80"};border-radius:12px;padding:14px;margin-bottom:12px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                  <span style="font-size:12px;color:#777;">申請ID：<strong>${ad.id}</strong> ｜ ${ad.date}</span>
-                  <span>${statusLabel}</span>
-                </div>
-                <div style="font-weight:bold;font-size:15px;margin-bottom:4px;">🎬 ${ad.title.replace(/</g, "&lt;")}</div>
-                <div style="font-size:12px;color:#444;margin-bottom:4px;">会員：${ad.username.replace(/</g, "&lt;")} ｜ 上限：${Number(ad.limit).toLocaleString()}回（<strong>${feeYen.toLocaleString()}円</strong>） ｜ ${ad.mp4Info || ""}</div>
-                <div style="font-size:12px;margin-bottom:6px;word-break:break-all;"><a href="${ad.url.replace(/"/g, "&quot;")}" target="_blank" style="color:#e65100;">${ad.url.replace(/</g, "&lt;")}</a></div>
-                ${ad.stripeUrl ? `<div style="font-size:11px;color:#1565c0;background:#e3f2fd;padding:5px 8px;border-radius:6px;margin-bottom:6px;word-break:break-all;">案内中Stripe URL：${ad.stripeUrl.replace(/</g, "&lt;")}</div>` : ""}
-                ${st === "rejected" && ad.rejectReason ? `<div style="background:#ffebee;color:#c62828;font-size:12px;padding:6px 10px;border-radius:6px;margin-bottom:8px;">拒否理由：${ad.rejectReason.replace(/</g, "&lt;")}</div>` : ""}
-                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
-                  <button type="button" onclick="reviewShortAd('${ad.id}', 'payment_pending', ${feeYen})" style="flex:1;min-width:130px;background:#1565c0;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px;">✅ 承諾（決済処理中へ）</button>
-                  <button type="button" onclick="reviewShortAd('${ad.id}', 'approved', ${feeYen})" style="flex:1;min-width:130px;background:#2e7d32;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px;">💰 入金確認・掲載開始</button>
-                  <button type="button" onclick="reviewShortAd('${ad.id}', 'rejected', ${feeYen})" style="background:#c62828;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px;">❌ 不許可</button>
-                  <button type="button" onclick="deleteShortAd('${ad.id}')" style="background:#424242;color:#fff;border:none;padding:8px 10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px;">🗑️ 削除</button>
-                </div>
-              </div>
-            `;
-          }).join("");
+     
 
          const pendingAds = shortAdsList.filter(a => (a.status || "pending") === "pending").reverse();
       const activeAndQueued = shortAdsList.filter(a => a.status === "approved" || a.status === "queued" || a.status === "payment_pending");
