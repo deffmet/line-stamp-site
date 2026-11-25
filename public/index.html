@@ -893,6 +893,8 @@ document.addEventListener("dragstart", (e) => {
 })();
 
 </script>
+
+  
 <script>
   (function initPaidShortVideo() {
     function getAdDeviceId() {
@@ -911,7 +913,7 @@ document.addEventListener("dragstart", (e) => {
         if (videoEl && videoEl.tagName === "SOURCE") videoEl = videoEl.parentElement;
         if (!videoEl) return;
 
-        // 決済済みの掲載中動画がない場合は、元の short1.mp4 のまま維持
+        // 決済済みの掲載中動画がない場合は、元の short1.mp4 に戻す
         if (!ad || !ad.videoData) {
           if (videoEl.getAttribute("src") !== "short1.mp4") {
             videoEl.src = "short1.mp4";
@@ -925,8 +927,35 @@ document.addEventListener("dragstart", (e) => {
         videoEl.load();
         videoEl.play().catch(function() {});
 
-        // タイトル・リンク先バナーを動画のすぐ下に表示＆クリック計測
+        var sentOnce = false;
+        var countClick = function() {
+          if (sentOnce) return;
+          sentOnce = true;
+          var payload = JSON.stringify({
+            action: "click",
+            id: ad.id,
+            deviceId: getAdDeviceId()
+          });
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon("/api/short-ads", new Blob([payload], { type: "application/json" }));
+          } else {
+            fetch("/api/short-ads", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: payload,
+              keepalive: true
+            }).catch(function() {});
+          }
+        };
+
+        // 動画の親枠全体（既存の透明タップ枠含む）のクリック・タップをすべて確実に検知
         var wrap = videoEl.parentElement;
+        if (wrap) {
+          wrap.addEventListener("pointerdown", countClick);
+          wrap.addEventListener("click", countClick);
+        }
+
+        // タイトル・リンク先バナーを動画のすぐ下に表示＆クリック計測
         if (wrap && !document.getElementById("paidShortBanner")) {
           var banner = document.createElement("a");
           banner.id = "paidShortBanner";
@@ -936,21 +965,14 @@ document.addEventListener("dragstart", (e) => {
           banner.style.cssText = "display:block;margin-top:8px;padding:8px 12px;background:#fff3e0;border:2px solid #e65100;border-radius:10px;color:#3e2723;text-decoration:none;font-size:12px;font-weight:bold;text-align:center;";
           banner.innerHTML = '🎬 ' + String(ad.title || "").replace(/</g, "&lt;") + ' <span style="color:#e65100;text-decoration:underline;">（YouTubeで見る ↗）</span>';
           wrap.appendChild(banner);
-
-          var countClick = function() {
-            fetch("/api/short-ads", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "click", id: ad.id, deviceId: getAdDeviceId() })
-            }).catch(function() {});
-          };
+          banner.addEventListener("pointerdown", countClick);
           banner.addEventListener("click", countClick);
-          videoEl.addEventListener("click", countClick);
         }
       })
       .catch(function() {});
   })();
 </script>
+
 
 
 <footer style="margin-top:36px;padding:18px 16px;background:#fff;border-top:2px solid #ffe0b2;text-align:center;font-size:13px;color:#795548;">
