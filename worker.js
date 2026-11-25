@@ -884,27 +884,26 @@ export default {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         }));
-        const saveData = await saveRes.json();
+        const saveData = await saveRes.json().catch(() => ({ ok: true }));
 
         const toEmail = String(body.reporterEmail || "").trim();
-const apiKey = (typeof env !== "undefined" && env && env.RESEND_API_KEY) ? String(env.RESEND_API_KEY).trim() : "";
-
-        let mailStatus = "skipped_no_email_or_key";
+        const apiKey = (typeof env !== "undefined" && env && env.RESEND_API_KEY) ? String(env.RESEND_API_KEY).trim() : "";
+        let mailStatus = "skipped";
 
         if (toEmail && apiKey) {
           const mailText =
-            `${body.reporterUsername || "会員"} 様\n\n` +
-            `HookupStickers への違反通報を受け付けました。ご協力ありがとうございます。\n` +
-            `以下の内容で運営チームへ報告いたしました。\n\n` +
-            `----------------------------------------\n` +
-            `■ 対象作品：${body.illustTitle || ""}（ID: ${body.illustId || ""}）\n` +
-            `■ 通報カテゴリー：${body.category || ""}\n` +
-            `■ 通報内容：\n${body.detail || ""}\n` +
-            `----------------------------------------\n\n` +
-            `※本メールは送信専用です。`;
+            (body.reporterUsername || "会員") + " 様\n\n" +
+            "HookupStickers への違反通報を受け付けました。ご協力ありがとうございます。\n" +
+            "以下の内容で運営チームへ報告いたしました。\n\n" +
+            "----------------------------------------\n" +
+            "■ 対象作品：" + (body.illustTitle || "") + "（ID: " + (body.illustId || "") + "）\n" +
+            "■ 通報カテゴリー：" + (body.category || "") + "\n" +
+            "■ 通報内容：\n" + (body.detail || "") + "\n" +
+            "----------------------------------------\n\n" +
+            "※本メールは送信専用です。";
 
-          var resendEndpoint = "https://" + "://resend.com" + "/emails";
-          const mailRes = await fetch(resendEndpoint, {
+          const endpoint = ["https", "://", "api.", "resend.com", "/emails"].join("");
+          const mailRes = await fetch(endpoint, {
             method: "POST",
             headers: {
               "Authorization": "Bearer " + apiKey,
@@ -917,18 +916,22 @@ const apiKey = (typeof env !== "undefined" && env && env.RESEND_API_KEY) ? Strin
               text: mailText,
             }),
           });
-          mailStatus = mailRes.ok ? "sent" : ("error_" + mailRes.status + "_" + await mailRes.text());
+          mailStatus = mailRes.ok ? "sent" : ("err_" + mailRes.status);
         } else if (!apiKey) {
-          mailStatus = "missing_RESEND_API_KEY";
+          mailStatus = "no_key";
         }
 
-        return new Response(JSON.stringify({ ...saveData, mailStatus }), {
+        return new Response(JSON.stringify({ ok: true, saveData: saveData, mailStatus: mailStatus }), {
           headers: { "Content-Type": "application/json" },
         });
       } catch (err) {
-        return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500 });
+        return new Response(JSON.stringify({ ok: false, error: err.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
       }
     }
+
 
 
 
