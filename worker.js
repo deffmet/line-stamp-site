@@ -662,7 +662,8 @@ export class OnlineCounter {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
+
     const url = new URL(request.url);
     const id = env.ONLINE_COUNTER.idFromName("global-room");
     const stub = env.ONLINE_COUNTER.get(id);
