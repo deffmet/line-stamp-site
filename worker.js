@@ -266,6 +266,17 @@ export class OnlineCounter {
             headers: { "Content-Type": "application/json" },
           });
         }
+        // ★テスト専用：管理画面からクリック数を任意の数値に即時指定
+        if (body.action === "set_test_clicks") {
+          if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
+          const target = list.find((item) => String(item.id) === String(body.id));
+          if (target) {
+            target.clicks = Math.max(0, Math.floor(Number(body.clicks || 0)));
+            await this.state.storage.put("short_ads", list);
+            await syncShortAdQueue();
+          }
+          return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+        }
 
         // ステータス更新（承諾・決済完了・テスト決済完了・不許可）
         if (body.action === "set_status") {
@@ -1171,8 +1182,21 @@ export default {
                   <button type="button" onclick="reviewShortAd('${ad.id}', 'payment_pending', ${feeYen})" style="flex:1;min-width:120px;background:#1565c0;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">✅ 承諾（決済待ちへ）</button>
                   <button type="button" onclick="reviewShortAd('${ad.id}', 'paid', ${feeYen})" style="flex:1;min-width:120px;background:#2e7d32;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">💰 入金確認・掲載予約</button>
                   <button type="button" onclick="reviewShortAd('${ad.id}', 'test_paid', ${feeYen})" style="flex:1;min-width:130px;background:#6a1b9a;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">🧪 テスト決済完了（挙動確認）</button>
+                  <button type="button" onclick="setTestClicks('${ad.id}', ${clicks}, ${limit})" style="background:#00838f;color:#fff;border:none;padding:8px 10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">🔢 テストクリック指定</button>
+
                   <button type="button" onclick="reviewShortAd('${ad.id}', 'rejected', ${feeYen})" style="background:#c62828;color:#fff;border:none;padding:8px 10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">❌ 不許可</button>
                   <button type="button" onclick="deleteShortAd('${ad.id}')" style="background:#424242;color:#fff;border:none;padding:8px 10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:11px;">🗑️ 削除</button>
+                async function setTestClicks(id, curClicks, limit) {
+  const val = prompt("【テスト用】新しいクリック数を半角数字で入力してください（上限：" + limit + "回）\n※上限以上を入力すると即座に掲載終了し、次の動画またはshort1.mp4へ自動切替されます。", String(curClicks));
+  if (val === null || val.trim() === "" || isNaN(Number(val))) return;
+  const res = await fetch("/api/short-ads", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "set_test_clicks", key: "${ADMIN_KEY}", id: id, clicks: Number(val) })
+  });
+  if (res.ok) location.reload();
+}
+
                 </div>
               </div>
             `;
