@@ -886,7 +886,8 @@ export default {
         const saveData = await saveRes.json();
 
         const toEmail = String(body.reporterEmail || "").trim();
-        const apiKey = (env && env.RESEND_API_KEY) ? String(env.RESEND_API_KEY).trim() : "";
+const apiKey = (typeof env !== "undefined" && env && env.RESEND_API_KEY) ? String(env.RESEND_API_KEY).trim() : "";
+
         let mailStatus = "skipped_no_email_or_key";
 
         if (toEmail && apiKey) {
