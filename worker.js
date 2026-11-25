@@ -1084,7 +1084,6 @@ export default {
         const pendingAds = shortAdsList.filter(a => (a.status || "pending") === "pending").reverse();
      
 
-         const pendingAds = shortAdsList.filter(a => (a.status || "pending") === "pending").reverse();
       const activeAndQueued = shortAdsList.filter(a => a.status === "approved" || a.status === "queued" || a.status === "payment_pending");
       const finishedAds = shortAdsList.filter(a => a.status === "completed" || a.status === "rejected").slice(0, 10);
       const displayAds = [...pendingAds, ...activeAndQueued, ...finishedAds];
