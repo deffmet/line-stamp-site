@@ -192,13 +192,39 @@
       listEl.innerHTML = '<p style="color:#8d6e63;font-size:14px;">まだ掲載中のショート動画はありません。</p>';
       return;
     }
-      listEl.innerHTML = list.map(function(item) {
-      var st = item.status === "approved" ? "🔥 掲載中" : item.status === "rejected" ? "❌ 不許可" : "⏳ 審査中";
+    listEl.innerHTML = list.map(function(item) {
+      var feeYen = Math.round(Number(item.limit || 1000) * 0.1);
+      var st = item.status === "approved"
+        ? "🟢 掲載中（決済完了）"
+        : item.status === "payment_pending"
+        ? "💳 決済処理中"
+        : item.status === "rejected"
+        ? "❌ 不許可"
+        : "⏳ 審査中";
+
       var reasonHtml = (item.status === "rejected" && item.rejectReason)
         ? '<div style="margin-top:6px;padding:6px 10px;background:#ffebee;color:#c62828;border-radius:6px;font-size:12px;font-weight:bold;">不許可理由：' + item.rejectReason.replace(/</g, "&lt;") + '</div>'
         : '';
-      return '<div class="video-item"><div class="v-info"><div class="v-date">' + item.date + '</div><div class="v-title">' + item.title.replace(/</g, "&lt;") + '</div><div class="v-url">' + item.url.replace(/</g, "&lt;") + '</div>' + reasonHtml + '</div><div class="v-stats"><div class="stat-nums">' + item.clicks + ' / ' + item.limit + '</div><span class="badge-active">' + st + '</span></div></div>';
+
+      var payBoxHtml = "";
+      if (item.status === "payment_pending") {
+        var payLink = (item.stripeUrl && item.stripeUrl.indexOf("https://") === 0) ? item.stripeUrl : "";
+        payBoxHtml =
+          '<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:10px;margin-top:8px;">' +
+            '<div style="font-size:12px;font-weight:bold;color:#0d47a1;margin-bottom:4px;">💳 審査を通過しました！現在「決済処理中」です</div>' +
+            '<div style="font-size:11px;color:#1565c0;line-height:1.5;margin-bottom:8px;">' +
+              'お支払い金額：<strong>' + feeYen.toLocaleString() + '円（税込）</strong><br>' +
+              '申請ID：<strong>' + item.id + '</strong>' +
+            '</div>' +
+            (payLink
+              ? '<a href="' + payLink.replace(/"/g, "&quot;") + '" target="_blank" rel="noopener" style="display:block;text-align:center;background:#635bff;color:#fff;text-decoration:none;font-weight:bold;font-size:13px;padding:10px;border-radius:8px;">💳 Stripeでお支払いへ進む（' + feeYen.toLocaleString() + '円） ↗</a>'
+              : '<div style="font-size:11px;color:#555;background:#fff;padding:6px;border-radius:6px;">現在お支払いリンクを発行準備中です。しばらくお待ちください。</div>') +
+          '</div>';
+      }
+
+      return '<div class="video-item" style="flex-wrap:wrap;"><div class="v-info" style="flex:1;min-width:200px;"><div class="v-date">' + item.date + '</div><div class="v-title">' + item.title.replace(/</g, "&lt;") + '</div><div class="v-url">' + item.url.replace(/</g, "&lt;") + '</div>' + reasonHtml + payBoxHtml + '</div><div class="v-stats"><div class="stat-nums">' + item.clicks + ' / ' + item.limit + '</div><span class="badge-active">' + st + '</span></div></div>';
     }).join("");
+
 
   }
   document.getElementById("shortAdForm").addEventListener("submit", async function(e) {
