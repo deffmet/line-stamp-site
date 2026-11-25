@@ -893,6 +893,64 @@ document.addEventListener("dragstart", (e) => {
 })();
 
 </script>
+<script>
+  (function initPaidShortVideo() {
+    function getAdDeviceId() {
+      var did = localStorage.getItem("hs_device_id");
+      if (!did) {
+        did = "dev_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem("hs_device_id", did);
+      }
+      return did;
+    }
+
+    fetch("/api/short-ads?mode=active&_t=" + Date.now())
+      .then(function(r) { return r.json(); })
+      .then(function(ad) {
+        var videoEl = document.querySelector('video[src*="short1.mp4"], video source[src*="short1.mp4"]');
+        if (videoEl && videoEl.tagName === "SOURCE") videoEl = videoEl.parentElement;
+        if (!videoEl) return;
+
+        // 決済済みの掲載中動画がない場合は、元の short1.mp4 のまま維持
+        if (!ad || !ad.videoData) {
+          if (videoEl.getAttribute("src") !== "short1.mp4") {
+            videoEl.src = "short1.mp4";
+            videoEl.load();
+          }
+          return;
+        }
+
+        // 決済完了した720×1280pxのMP4動画を自動貼り付け
+        videoEl.src = ad.videoData;
+        videoEl.load();
+        videoEl.play().catch(function() {});
+
+        // タイトル・リンク先バナーを動画のすぐ下に表示＆クリック計測
+        var wrap = videoEl.parentElement;
+        if (wrap && !document.getElementById("paidShortBanner")) {
+          var banner = document.createElement("a");
+          banner.id = "paidShortBanner";
+          banner.href = ad.url;
+          banner.target = "_blank";
+          banner.rel = "noopener";
+          banner.style.cssText = "display:block;margin-top:8px;padding:8px 12px;background:#fff3e0;border:2px solid #e65100;border-radius:10px;color:#3e2723;text-decoration:none;font-size:12px;font-weight:bold;text-align:center;";
+          banner.innerHTML = '🎬 ' + String(ad.title || "").replace(/</g, "&lt;") + ' <span style="color:#e65100;text-decoration:underline;">（YouTubeで見る ↗）</span>';
+          wrap.appendChild(banner);
+
+          var countClick = function() {
+            fetch("/api/short-ads", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "click", id: ad.id, deviceId: getAdDeviceId() })
+            }).catch(function() {});
+          };
+          banner.addEventListener("click", countClick);
+          videoEl.addEventListener("click", countClick);
+        }
+      })
+      .catch(function() {});
+  })();
+</script>
 
 
 <footer style="margin-top:36px;padding:18px 16px;background:#fff;border-top:2px solid #ffe0b2;text-align:center;font-size:13px;color:#795548;">
