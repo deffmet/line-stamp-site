@@ -149,13 +149,18 @@ export class OnlineCounter {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
           const target = list.find((item) => String(item.id) === String(body.id));
           if (target) {
-            target.status = body.status === "approved" ? "approved" : "rejected";
+            const allowed = ["payment_pending", "approved", "rejected"];
+            target.status = allowed.includes(body.status) ? body.status : "rejected";
             target.rejectReason = target.status === "rejected" ? String(body.reason || "").slice(0, 200) : "";
+            if (body.stripeUrl !== undefined) {
+              target.stripeUrl = String(body.stripeUrl || "").trim().slice(0, 300);
+            }
             target.reviewedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
             await this.state.storage.put("short_ads", list);
           }
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
+
 
         if (body.action === "delete") {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
@@ -957,50 +962,58 @@ export default {
 
       const videoTapData = await (await stub.fetch(new Request(`https://dummy/api/video-tap?key=${ADMIN_KEY}`))).json();
             const shortAdsList = await (await stub.fetch(new Request(`https://dummy/api/short-ads?key=${ADMIN_KEY}`))).json();
-      const pendingAds = shortAdsList.filter(a => (a.status || "pending") === "pending").reverse();
+        const pendingAds = shortAdsList.filter(a => (a.status || "pending") === "pending").reverse();
+      const payWaitAds = shortAdsList.filter(a => a.status === "payment_pending");
       const decidedAds = shortAdsList.filter(a => a.status === "approved" || a.status === "rejected").slice(0, 10);
-      const displayAds = [...pendingAds, ...decidedAds];
+      const displayAds = [...pendingAds, ...payWaitAds, ...decidedAds];
 
       const shortAdsHtml = displayAds.length === 0
         ? "<p style='font-size:13px;color:#666;'>表示するショート動画申請はありません。</p>"
         : displayAds.map(ad => {
             const st = ad.status || "pending";
+            const feeYen = Math.round(Number(ad.limit || 1000) * 0.1);
             const statusLabel = st === "approved"
-              ? "<span style='color:#2e7d32;font-weight:bold;'>✅ 承諾済み</span>"
+              ? "<span style='color:#2e7d32;font-weight:bold;'>🟢 掲載中（決済完了）</span>"
+              : st === "payment_pending"
+              ? "<span style='color:#1565c0;font-weight:bold;'>💳 決済処理中（お支払い待ち）</span>"
               : st === "rejected"
               ? "<span style='color:#c62828;font-weight:bold;'>❌ 不許可</span>"
               : "<span style='color:#e65100;font-weight:bold;'>⏳ 未決定（古い順優先）</span>";
 
             return `
-              <div class="ad-req-card" data-status="${st}" data-search="${(ad.title + " " + ad.username).toLowerCase().replace(/"/g, "&quot;")}" style="background:#fff;border:2px solid ${st === "pending" ? "#e65100" : "#ffcc80"};border-radius:12px;padding:14px;margin-bottom:12px;">
+              <div class="ad-req-card" data-status="${st}" data-search="${(ad.title + " " + ad.username + " " + ad.id).toLowerCase().replace(/"/g, "&quot;")}" style="background:#fff;border:2px solid ${st === "pending" ? "#e65100" : st === "payment_pending" ? "#1565c0" : "#ffcc80"};border-radius:12px;padding:14px;margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                  <span style="font-size:12px;color:#777;">申請：${ad.date}</span>
+                  <span style="font-size:12px;color:#777;">申請ID：<strong>${ad.id}</strong> ｜ ${ad.date}</span>
                   <span>${statusLabel}</span>
                 </div>
                 <div style="font-weight:bold;font-size:15px;margin-bottom:4px;">🎬 ${ad.title.replace(/</g, "&lt;")}</div>
-                <div style="font-size:12px;color:#444;margin-bottom:4px;">会員：${ad.username.replace(/</g, "&lt;")} ｜ 上限：${Number(ad.limit).toLocaleString()}回 ｜ ${ad.mp4Info || ""}</div>
+                <div style="font-size:12px;color:#444;margin-bottom:4px;">会員：${ad.username.replace(/</g, "&lt;")} ｜ 上限：${Number(ad.limit).toLocaleString()}回（<strong>${feeYen.toLocaleString()}円</strong>） ｜ ${ad.mp4Info || ""}</div>
                 <div style="font-size:12px;margin-bottom:6px;word-break:break-all;"><a href="${ad.url.replace(/"/g, "&quot;")}" target="_blank" style="color:#e65100;">${ad.url.replace(/</g, "&lt;")}</a></div>
+                ${ad.stripeUrl ? `<div style="font-size:11px;color:#1565c0;background:#e3f2fd;padding:5px 8px;border-radius:6px;margin-bottom:6px;word-break:break-all;">案内中Stripe URL：${ad.stripeUrl.replace(/</g, "&lt;")}</div>` : ""}
                 ${st === "rejected" && ad.rejectReason ? `<div style="background:#ffebee;color:#c62828;font-size:12px;padding:6px 10px;border-radius:6px;margin-bottom:8px;">拒否理由：${ad.rejectReason.replace(/</g, "&lt;")}</div>` : ""}
-                <div style="display:flex;gap:8px;margin-top:8px;">
-                  <button type="button" onclick="reviewShortAd('${ad.id}', 'approved')" style="flex:1;background:#2e7d32;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:13px;">✅ 承諾</button>
-                  <button type="button" onclick="reviewShortAd('${ad.id}', 'rejected')" style="flex:1;background:#c62828;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:13px;">❌ 不許可</button>
-                  <button type="button" onclick="deleteShortAd('${ad.id}')" style="background:#424242;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:13px;">🗑️ 完全削除</button>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'payment_pending', ${feeYen})" style="flex:1;min-width:130px;background:#1565c0;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px;">✅ 承諾（決済処理中へ）</button>
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'approved', ${feeYen})" style="flex:1;min-width:130px;background:#2e7d32;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px;">💰 入金確認・掲載開始</button>
+                  <button type="button" onclick="reviewShortAd('${ad.id}', 'rejected', ${feeYen})" style="background:#c62828;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px;">❌ 不許可</button>
+                  <button type="button" onclick="deleteShortAd('${ad.id}')" style="background:#424242;color:#fff;border:none;padding:8px 10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:12px;">🗑️ 削除</button>
                 </div>
               </div>
             `;
           }).join("");
-            const latestNoticeHtml = `
+
+      const latestNoticeHtml = `
         <div style="background:#fff3e0;border:2px solid #e65100;border-radius:12px;padding:16px;margin-bottom:24px;">
           <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;">
-            <h2 style="margin:0;color:#e65100;font-size:17px;">🔔 動画申請（未決定:${pendingAds.length}件 / 全${shortAdsList.length}件）</h2>
+            <h2 style="margin:0;color:#e65100;font-size:17px;">🔔 動画申請（未決定:${pendingAds.length}件 / 決済待ち:${payWaitAds.length}件）</h2>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <select id="tagFilterSelect" onchange="filterAdCards()" style="padding:6px 8px;border-radius:6px;border:1px solid #ffcc80;font-size:12px;">
                 <option value="all">すべて表示</option>
                 <option value="pending">⏳ 未決定のみ</option>
-                <option value="approved">✅ 承諾済み</option>
+                <option value="payment_pending">💳 決済処理中のみ</option>
+                <option value="approved">🟢 掲載中（決済完了）</option>
                 <option value="rejected">❌ 不許可</option>
               </select>
-              <input type="text" id="tagSearchInput" oninput="filterAdCards()" placeholder="タイトル・会員名で検索" style="padding:6px 8px;border-radius:6px;border:1px solid #ffcc80;font-size:12px;width:140px;">
+              <input type="text" id="tagSearchInput" oninput="filterAdCards()" placeholder="タイトル・会員名・IDで検索" style="padding:6px 8px;border-radius:6px;border:1px solid #ffcc80;font-size:12px;width:150px;">
             </div>
           </div>
           ${shortAdsHtml}
@@ -1015,18 +1028,22 @@ export default {
               card.style.display = (matchTag && matchKw) ? "block" : "none";
             });
           }
-          async function reviewShortAd(id, status) {
+          async function reviewShortAd(id, status, feeYen) {
             let reason = "";
+            let stripeUrl = undefined;
             if (status === "rejected") {
               reason = prompt("不許可（拒否）の理由を入力してください（会員画面に表示されます）：", "規約または動画基準を満たしていないため");
               if (reason === null) return;
-            } else {
-              if (!confirm("この申請を「承諾（掲載許可）」にしますか？")) return;
+            } else if (status === "payment_pending") {
+              stripeUrl = prompt("この申請（" + feeYen + "円）用の Stripe 決済リンクURL（https://stripe.com...）を入力してください：", "https://stripe.com");
+              if (stripeUrl === null) return;
+            } else if (status === "approved") {
+              if (!confirm("Stripeでの入金（" + feeYen + "円）を確認済みですか？\\n「OK」を押すとトップページへの掲載が開始されます。")) return;
             }
             const res = await fetch("/api/short-ads", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "set_status", key: "${ADMIN_KEY}", id: id, status: status, reason: reason })
+              body: JSON.stringify({ action: "set_status", key: "${ADMIN_KEY}", id: id, status: status, reason: reason, stripeUrl: stripeUrl })
             });
             if (res.ok) location.reload();
           }
