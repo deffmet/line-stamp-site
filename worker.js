@@ -885,9 +885,10 @@ export default {
         }));
         const saveData = await saveRes.json();
 
-        // 通報者のメールアドレスがある場合は控えメールを自動送信
         const toEmail = String(body.reporterEmail || "").trim();
-        const apiKey = (env && env.RESEND_API_KEY) || (typeof RESEND_API_KEY !== "undefined" ? RESEND_API_KEY : "");
+        const apiKey = (env && env.RESEND_API_KEY) ? String(env.RESEND_API_KEY).trim() : "";
+        let mailStatus = "skipped_no_email_or_key";
+
         if (toEmail && apiKey) {
           const mailText =
             `${body.reporterUsername || "会員"} 様\n\n` +
@@ -900,29 +901,33 @@ export default {
             `----------------------------------------\n\n` +
             `※本メールは送信専用です。`;
 
-                  var resendEndpoint = "https://" + "api.resend.com" + "/emails";
-          await fetch(resendEndpoint, {
+          var resendEndpoint = "https://" + "://resend.com" + "/emails";
+          const mailRes = await fetch(resendEndpoint, {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${apiKey}`,
+              "Authorization": "Bearer " + apiKey,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-from: "HookupStickers 運営事務局 <noreply@hookupstickers.com>",
-
+              from: "HookupStickers 運営事務局 <noreply@hookupstickers.com>",
               to: [toEmail],
               subject: "【HookupStickers】違反通報の受付控え",
               text: mailText,
             }),
-          }).catch(() => {});
-
+          });
+          mailStatus = mailRes.ok ? "sent" : ("error_" + mailRes.status + "_" + await mailRes.text());
+        } else if (!apiKey) {
+          mailStatus = "missing_RESEND_API_KEY";
         }
 
-        return new Response(JSON.stringify(saveData), { headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ ...saveData, mailStatus }), {
+          headers: { "Content-Type": "application/json" },
+        });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500 });
       }
     }
+
 
 
 
