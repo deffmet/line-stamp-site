@@ -142,7 +142,7 @@
   function checkMp4File(file) {
     return new Promise(function(resolve, reject) {
       if (!file) return reject("short動画ファイル（MP4）を選択してください。");
-      var maxBytes = 2.5 * 1024 * 1024;
+      var maxBytes = 25 * 1024 * 1024;
       if (file.size > maxBytes) {
         return reject("動画容量が大きすぎます（現在 " + (file.size / 1024 / 1024).toFixed(2) + "MB）。2.5MB以内の軽量MP4にしてください。");
       }
