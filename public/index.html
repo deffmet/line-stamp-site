@@ -913,7 +913,9 @@ document.addEventListener("dragstart", (e) => {
         if (videoEl && videoEl.tagName === "SOURCE") videoEl = videoEl.parentElement;
         if (!videoEl) return;
 
-        // 決済済みの掲載中動画がない場合は、元の short1.mp4 に戻す
+        var wrap = videoEl.parentElement;
+
+        // 決済済みの掲載中動画がない場合は、元の short1.mp4 のまま維持
         if (!ad || !ad.videoData) {
           if (videoEl.getAttribute("src") !== "short1.mp4") {
             videoEl.src = "short1.mp4";
@@ -922,11 +924,30 @@ document.addEventListener("dragstart", (e) => {
           return;
         }
 
-        // 決済完了した720×1280pxのMP4動画を自動貼り付け
+        // 1. 決済完了した720×1280pxのMP4動画を自動貼り付け
         videoEl.src = ad.videoData;
         videoEl.load();
         videoEl.play().catch(function() {});
 
+        // 2. 黒いヘッダーの「▶ 最新動画」を申請者の「掲載するshort動画タイトル名」に書き換え
+        if (wrap && ad.title) {
+          var nodes = wrap.querySelectorAll("*");
+          for (var i = 0; i < nodes.length; i++) {
+            var el = nodes[i];
+            if (el.children.length === 0 && el.textContent && el.textContent.indexOf("最新動画") !== -1) {
+              el.textContent = "▶ " + ad.title;
+              break;
+            }
+          }
+        }
+
+        // 3. 既存の赤い「YouTubeで見る ↗」ボタンのリンク先を申請者のURLへ更新
+        var ytBtn = wrap ? wrap.querySelector('a[href*="youtube"], a[href*="youtu.be"], a') : null;
+        if (ytBtn && ad.url) {
+          ytBtn.href = ad.url;
+        }
+
+        // 4. クリック計測（1端末1日1回）
         var sentOnce = false;
         var countClick = function() {
           if (sentOnce) return;
@@ -948,30 +969,19 @@ document.addEventListener("dragstart", (e) => {
           }
         };
 
-        // 動画の親枠全体（既存の透明タップ枠含む）のクリック・タップをすべて確実に検知
-        var wrap = videoEl.parentElement;
         if (wrap) {
           wrap.addEventListener("pointerdown", countClick);
           wrap.addEventListener("click", countClick);
         }
-
-        // タイトル・リンク先バナーを動画のすぐ下に表示＆クリック計測
-        if (wrap && !document.getElementById("paidShortBanner")) {
-          var banner = document.createElement("a");
-          banner.id = "paidShortBanner";
-          banner.href = ad.url;
-          banner.target = "_blank";
-          banner.rel = "noopener";
-          banner.style.cssText = "display:block;margin-top:8px;padding:8px 12px;background:#fff3e0;border:2px solid #e65100;border-radius:10px;color:#3e2723;text-decoration:none;font-size:12px;font-weight:bold;text-align:center;";
-          banner.innerHTML = '🎬 ' + String(ad.title || "").replace(/</g, "&lt;") + ' <span style="color:#e65100;text-decoration:underline;">（YouTubeで見る ↗）</span>';
-          wrap.appendChild(banner);
-          banner.addEventListener("pointerdown", countClick);
-          banner.addEventListener("click", countClick);
+        if (ytBtn) {
+          ytBtn.addEventListener("pointerdown", countClick);
+          ytBtn.addEventListener("click", countClick);
         }
       })
       .catch(function() {});
   })();
 </script>
+
 
 
 
