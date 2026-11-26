@@ -283,6 +283,15 @@ export class OnlineCounter {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
           const target = list.find((item) => String(item.id) === String(body.id));
           if (target) {
+            // ★上限クリック数（カテゴリー）ごとの事前設定 Stripe 決済URL
+            const STRIPE_PLAN_URLS = {
+              "1000": "https://stripe.com",
+              "5000": "https://buy.stripe.com/4gM5kx3dn6JzcFn2UN1VK01",
+              "10000": "https://buy.stripe.com/5kQ5kxbJTd7Xaxf66Z1VK00",
+              "50000": "https://stripe.com",
+              "100000": "https://stripe.com",
+            };
+
             if (body.status === "paid" || body.status === "approved") {
               target.status = "queued";
               target.paidAt = Date.now();
@@ -290,9 +299,11 @@ export class OnlineCounter {
               target.rejectReason = "";
             } else if (body.status === "payment_pending") {
               target.status = "payment_pending";
-              if (body.stripeUrl !== undefined) {
-                target.stripeUrl = String(body.stripeUrl || "").trim().slice(0, 300);
-              }
+              const limitKey = String(target.limit || "1000");
+              const presetUrl = STRIPE_PLAN_URLS[limitKey] || "";
+              target.stripeUrl = (body.stripeUrl && body.stripeUrl.startsWith("https://"))
+                ? String(body.stripeUrl).trim().slice(0, 300)
+                : presetUrl;
             } else {
               target.status = "rejected";
               target.rejectReason = String(body.reason || "").slice(0, 200);
@@ -303,6 +314,7 @@ export class OnlineCounter {
           }
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
+
 
         // 申請削除（動画データも同時削除）
         if (body.action === "delete") {
