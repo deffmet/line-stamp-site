@@ -111,83 +111,9 @@
   <h2 class="section-title">📋 あなたの掲載動画履歴（最新順）</h2>
   <div class="video-list" id="videoList">
     <p style="color:#8d6e63;font-size:14px;">読み込み中...</p>
-    <script>
-  (function() {
-    var listEl = document.getElementById("myShortAdList");
-    if (!listEl) return;
-    var u = null;
-    try { u = JSON.parse(localStorage.getItem("hs_user") || "null"); } catch (e) {}
-    if (!u || !u.uid) {
-      listEl.innerHTML = '<div style="font-size:13px;color:#777;">ログイン情報を確認できませんでした。</div>';
-      return;
-    }
-
-    fetch("/api/short-ads?uid=" + encodeURIComponent(u.uid) + "&_t=" + Date.now(), { cache: "no-store" })
-      .then(function(r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
-      .then(function(list) {
-        if (!Array.isArray(list) || list.length === 0) {
-          listEl.innerHTML = '<div style="font-size:13px;color:#777;">まだ掲載申し込み履歴はありません。</div>';
-          return;
-        }
-        listEl.innerHTML = list.map(function(item) {
-          var feeYen = Math.round(Number(item.limit || 1000) * 0.1);
-          var st = item.status === "approved"
-            ? "🟢 トップ掲載中"
-            : item.status === "queued"
-            ? "📅 掲載予約待ち（決済済み）"
-            : item.status === "payment_pending"
-            ? "💳 決済処理中"
-            : item.status === "completed"
-            ? "🏁 掲載終了"
-            : item.status === "rejected"
-            ? "❌ 不許可"
-            : "⏳ 審査中";
-
-          var reasonHtml = (item.status === "rejected" && item.rejectReason)
-            ? '<div style="margin-top:6px;padding:6px 10px;background:#ffebee;color:#c62828;border-radius:6px;font-size:12px;font-weight:bold;">不許可理由：' + String(item.rejectReason).replace(/</g, "&lt;") + '</div>'
-            : '';
-
-          var payBoxHtml = "";
-          if (item.status === "payment_pending") {
-            var payLink = (item.stripeUrl && String(item.stripeUrl).indexOf("https://") === 0) ? String(item.stripeUrl) : "";
-            payBoxHtml =
-              '<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:10px;margin-top:8px;">' +
-                '<div style="font-size:12px;font-weight:bold;color:#0d47a1;margin-bottom:4px;">💳 審査を通過しました！現在「決済処理中」です</div>' +
-                '<div style="font-size:11px;color:#1565c0;line-height:1.5;margin-bottom:8px;">' +
-                  'お支払い金額：<strong>' + feeYen.toLocaleString() + '円（税込）</strong><br>' +
-                  '申請ID：<strong>' + item.id + '</strong>' +
-                '</div>' +
-                (payLink
-                  ? '<a href="' + payLink.replace(/"/g, "&quot;") + '" target="_blank" rel="noopener" style="display:block;text-align:center;background:#635bff;color:#fff;text-decoration:none;font-weight:bold;font-size:13px;padding:10px;border-radius:8px;">💳 Stripeでお支払いへ進む（' + feeYen.toLocaleString() + '円） ↗</a>'
-                  : '<div style="font-size:11px;color:#555;background:#fff;padding:6px;border-radius:6px;">現在お支払いリンクを発行準備中です。しばらくお待ちください。</div>') +
-              '</div>';
-          }
-
-          return '<div class="video-item" style="flex-wrap:wrap;">' +
-            '<div class="v-info" style="flex:1;min-width:200px;">' +
-              '<div class="v-date">' + (item.date || "") + '</div>' +
-              '<div class="v-title">' + String(item.title || "").replace(/</g, "&lt;") + '</div>' +
-              '<div class="v-url">' + String(item.url || "").replace(/</g, "&lt;") + '</div>' +
-              reasonHtml + payBoxHtml +
-            '</div>' +
-            '<div class="v-stats">' +
-              '<div class="stat-nums">' + Number(item.clicks || 0) + ' / ' + Number(item.limit || 1000) + '</div>' +
-              '<span class="badge-active">' + st + '</span>' +
-            '</div>' +
-          '</div>';
-        }).join("");
-      })
-      .catch(function(err) {
-        listEl.innerHTML = '<div style="font-size:13px;color:#c62828;">読み込みエラー：' + (err && err.message ? err.message : "通信失敗") + '</div>';
-      });
-  })();
-</script>
-
   </div>
 </div>
+
 <script>
   var currentUser = null;
   var saved = localStorage.getItem("site_user");
@@ -204,6 +130,7 @@
     box.textContent = "⚠️ " + msg;
     box.style.display = "block";
   }
+
   function updatePricePreview() {
     var limit = Number(document.getElementById("adLimit").value || 1000);
     var yen = Math.round(limit * 0.1);
@@ -214,12 +141,13 @@
   function isValidYoutubeUrl(str) {
     return /^https?:\/\/(www\.|m\.)?(youtube\.com\/(shorts\/|watch\?v=)|youtu\.be\/)[A-Za-z0-9_-]+/.test(str);
   }
+
   function checkMp4File(file) {
     return new Promise(function(resolve, reject) {
       if (!file) return reject("short動画ファイル（MP4）を選択してください。");
       var maxBytes = 25 * 1024 * 1024;
       if (file.size > maxBytes) {
-        return reject("動画容量が大きすぎます（現在 " + (file.size / 1024 / 1024).toFixed(2) + "MB）。2.5MB以内の軽量MP4にしてください。");
+        return reject("動画容量が大きすぎます（現在 " + (file.size / 1024 / 1024).toFixed(2) + "MB）。25MB以下のMP4にしてください。");
       }
       var isMp4Type = (file.type === "video/mp4") || /\.mp4$/i.test(file.name);
       if (!isMp4Type) return reject("MP4形式（.mp4）の動画ファイルのみアップロード可能です。");
@@ -254,9 +182,10 @@
 
   function renderLineChart(items) {
     var area = document.getElementById("chartArea");
+    if (!area) return;
     var ordered = items.slice().reverse();
-    var points = ordered.length > 0 ? ordered.map(function(v) { return Number(v.clicks || 0); }) : new Array(0, 0);
-    if (points.length === 1) points = new Array(0, points.at(0));
+    var points = ordered.length > 0 ? ordered.map(function(v) { return Number(v.clicks || 0); }) :;
+    if (points.length === 1) points = [0, points[0]];
     var maxVal = Math.max.apply(null, points.concat(10));
     var coords = points.map(function(val, idx) {
       var x = (10 + (545 * idx) / (points.length - 1)).toFixed(1);
@@ -265,9 +194,6 @@
     });
     area.innerHTML = '<svg viewBox="0 0 600 140" width="100%" height="100%" preserveAspectRatio="none"><polyline fill="none" stroke="#e65100" stroke-width="3" points="' + coords.join(" ") + '"/></svg>';
   }
-  var currentUser = (typeof currentUser !== "undefined" && currentUser) ? currentUser : (function() {
-    try { return JSON.parse(localStorage.getItem("site_user")) || "null"); } catch (e) { return null; }
-  })();
 
   async function loadMyShortAds() {
     var listEl = document.getElementById("videoList");
@@ -276,7 +202,6 @@
       listEl.innerHTML = '<div style="font-size:13px;color:#777;">ログイン情報を確認できませんでした。</div>';
       return;
     }
-
 
     try {
       var res = await fetch("/api/short-ads?uid=" + encodeURIComponent(currentUser.uid) + "&_t=" + Date.now(), {
@@ -287,7 +212,14 @@
         return;
       }
       var list = await res.json();
-      if (!Array.isArray(list) || list.length === 0) {
+      if (!Array.isArray(list)) list = [];
+
+      var totalClicks = list.reduce(function(sum, it) { return sum + Number(it.clicks || 0); }, 0);
+      var totalEl = document.getElementById("totalClicksText");
+      if (totalEl) totalEl.innerHTML = totalClicks.toLocaleString() + " <span>クリック</span>";
+      renderLineChart(list);
+
+      if (list.length === 0) {
         listEl.innerHTML = '<div style="font-size:13px;color:#777;">まだ掲載申し込み履歴はありません。</div>';
         return;
       }
@@ -364,21 +296,21 @@
     btn.textContent = "確認・送信中...";
 
     try {
-         var mp4Res = await checkMp4File(file);
-    var res = await fetch("/api/short-ads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        uid: currentUser.uid,
-        username: currentUser.username,
-        email: currentUser.email,
-        title: title,
-        limit: Number(document.getElementById("adLimit").value),
-        url: url,
-        mp4Info: mp4Res.info,
-        videoData: mp4Res.videoData
-      })
-    });
+      var mp4Res = await checkMp4File(file);
+      var res = await fetch("/api/short-ads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: currentUser.uid,
+          username: currentUser.username,
+          email: currentUser.email,
+          title: title,
+          limit: Number(document.getElementById("adLimit").value),
+          url: url,
+          mp4Info: mp4Res.info,
+          videoData: mp4Res.videoData
+        })
+      });
 
       var data = await res.json();
       if (!res.ok || !data.ok) return showFormError(data.error || "送信に失敗しました。");
@@ -399,3 +331,4 @@
 </script>
 </body>
 </html>
+
