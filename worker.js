@@ -301,6 +301,34 @@ export class OnlineCounter {
           }
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
+       
+                // ★Stripe決済完了後の全自動承認（リダイレクト戻り・Webhook共通）
+        if (body.action === "auto_paid") {
+          const targetId = String(body.id || "");
+          const uid = String(body.uid || "");
+          let target = targetId
+            ? list.find((item) => String(item.id) === targetId && item.status === "payment_pending")
+            : null;
+          if (!target && uid) {
+            target = list.find((item) => String(item.uid) === uid && item.status === "payment_pending");
+          }
+          if (target) {
+            target.status = "queued";
+            target.paidAt = Date.now();
+            target.clicks = 0;
+            target.rejectReason = "";
+            target.reviewedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+            await this.state.storage.put("short_ads", list);
+            await syncShortAdQueue();
+            return new Response(JSON.stringify({ ok: true, approvedId: target.id }), {
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          return new Response(JSON.stringify({ ok: false, reason: "no_pending_payment" }), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
         // ステータス更新（承諾・決済完了・テスト決済完了・不許可）
         if (body.action === "set_status") {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
@@ -1270,9 +1298,10 @@ export default {
             } else if (status === "paid") {
               if (!confirm("Stripeでの入金（" + feeYen + "円）を確認済みですか？\\n空き枠があれば即座に掲載開始、掲載中があれば予約待ちキューに入ります。")) return;
             } else if (status === "test_paid") {
-              if (!confirm("【テスト挙動確認】決済リンクなしで決済完了扱いとし、トップページ掲載（または予約キュー）へ反映しますか？")) return;
+              if (!confirm("【決済完了・自動承認テスト】会員がStripe決済を完了した直後の挙動をシミュレートし、自動でトップ掲載（または予約キュー）へ反映しますか？")) return;
               sendStatus = "paid";
             }
+
             const res = await fetch("/api/short-ads", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
