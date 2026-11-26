@@ -906,45 +906,68 @@ document.addEventListener("dragstart", (e) => {
       return did;
     }
 
-    fetch("/api/short-ads?mode=active&_t=" + Date.now())
+    // ページ全体から「▶ 最新動画」を含む要素を確実に探す
+    function findLatestHeaderEl() {
+      var all = document.querySelectorAll("div, span, p, h2, h3, strong");
+      for (var i = 0; i < all.length; i++) {
+        var el = all[i];
+        if (el.children.length === 0 && el.textContent && el.textContent.trim().indexOf("最新動画") !== -1) {
+          return el;
+        }
+      }
+      return null;
+    }
+
+    // ページ全体から「YouTubeで見る」ボタンを確実に探す
+    function findYoutubeBtnEl() {
+      var links = document.querySelectorAll("a");
+      for (var i = 0; i < links.length; i++) {
+        if (links[i].textContent && links[i].textContent.indexOf("YouTubeで見る") !== -1) {
+          return links[i];
+        }
+      }
+      return null;
+    }
+
+    fetch("/api/short-ads?mode=active&_t=" + Date.now(), { cache: "no-store" })
       .then(function(r) { return r.json(); })
       .then(function(ad) {
-        var videoEl = document.querySelector('video[src*="short1.mp4"], video source[src*="short1.mp4"]');
+        var videoEl = document.querySelector('video[src*="short1.mp4"], video source[src*="short1.mp4"], video');
         if (videoEl && videoEl.tagName === "SOURCE") videoEl = videoEl.parentElement;
         if (!videoEl) return;
 
-        var wrap = videoEl.parentElement;
+        var headerEl = findLatestHeaderEl();
+        var ytBtn = findYoutubeBtnEl();
+        var playerCard = headerEl ? headerEl.parentElement : videoEl.parentElement;
+        if (playerCard && ytBtn && !playerCard.contains(ytBtn) && playerCard.parentElement) {
+          playerCard = playerCard.parentElement;
+        }
 
-        // 決済済みの掲載中動画がない場合は、元の short1.mp4 のまま維持
+        // 決済済みの掲載中動画がない場合は、元の short1.mp4 と「▶ 最新動画」に戻す
         if (!ad || !ad.videoData) {
           if (videoEl.getAttribute("src") !== "short1.mp4") {
             videoEl.src = "short1.mp4";
             videoEl.load();
           }
+          if (headerEl) headerEl.textContent = "▶ 最新動画";
           return;
         }
 
-        // 1. 決済完了した720×1280pxのMP4動画を自動貼り付け
+        // 1. すでに掲載中の動画でも即座にMP4動画を反映
         videoEl.src = ad.videoData;
         videoEl.load();
         videoEl.play().catch(function() {});
 
         // 2. 黒いヘッダーの「▶ 最新動画」を申請者の「掲載するshort動画タイトル名」に書き換え
-        if (wrap && ad.title) {
-          var nodes = wrap.querySelectorAll("*");
-          for (var i = 0; i < nodes.length; i++) {
-            var el = nodes[i];
-            if (el.children.length === 0 && el.textContent && el.textContent.indexOf("最新動画") !== -1) {
-              el.textContent = "▶ " + ad.title;
-              break;
-            }
-          }
+        if (headerEl && ad.title) {
+          headerEl.textContent = "▶ " + ad.title;
         }
 
-        // 3. 既存の赤い「YouTubeで見る ↗」ボタンのリンク先を申請者のURLへ更新
-        var ytBtn = wrap ? wrap.querySelector('a[href*="youtube"], a[href*="youtu.be"], a') : null;
+        // 3. 赤い「YouTubeで見る ↗」ボタンのリンク先を申請者のURLへ更新
         if (ytBtn && ad.url) {
           ytBtn.href = ad.url;
+          ytBtn.target = "_blank";
+          ytBtn.rel = "noopener";
         }
 
         // 4. クリック計測（1端末1日1回）
@@ -969,9 +992,9 @@ document.addEventListener("dragstart", (e) => {
           }
         };
 
-        if (wrap) {
-          wrap.addEventListener("pointerdown", countClick);
-          wrap.addEventListener("click", countClick);
+        if (playerCard) {
+          playerCard.addEventListener("pointerdown", countClick);
+          playerCard.addEventListener("click", countClick);
         }
         if (ytBtn) {
           ytBtn.addEventListener("pointerdown", countClick);
@@ -981,6 +1004,7 @@ document.addEventListener("dragstart", (e) => {
       .catch(function() {});
   })();
 </script>
+
 
 
 
