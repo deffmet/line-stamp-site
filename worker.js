@@ -277,7 +277,6 @@ export class OnlineCounter {
           }
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
-
         // ステータス更新（承諾・決済完了・テスト決済完了・不許可）
         if (body.action === "set_status") {
           if (body.key !== ADMIN_KEY) return new Response("Unauthorized", { status: 401 });
@@ -286,8 +285,8 @@ export class OnlineCounter {
             // ★上限クリック数（カテゴリー）ごとの事前設定 Stripe 決済URL
             const STRIPE_PLAN_URLS = {
               "1000": "https://stripe.com",
-              "5000": "https://buy.stripe.com/4gM5kx3dn6JzcFn2UN1VK01",
-              "10000": "https://buy.stripe.com/5kQ5kxbJTd7Xaxf66Z1VK00",
+              "5000": "https://stripe.com",
+              "10000": "https://stripe.com",
               "50000": "https://stripe.com",
               "100000": "https://stripe.com",
             };
@@ -314,6 +313,7 @@ export class OnlineCounter {
           }
           return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         }
+
 
 
         // 申請削除（動画データも同時削除）
@@ -1239,8 +1239,9 @@ export default {
             let sendStatus = status;
             if (status === "rejected") {
               reason = prompt("不許可（拒否）の理由を入力してください（会員画面に表示されます）：", "規約または動画基準を満たしていないため");
-              if (reason === null) return;            } else if (status === "payment_pending") {
+              if (reason === null) return;                        } else if (status === "payment_pending") {
               if (!confirm("この申請（上限 " + feeYen + "円分）を承諾し、該当プランのStripe決済リンクを会員へ自動送信しますか？")) return;
+
 
             } else if (status === "paid") {
               if (!confirm("Stripeでの入金（" + feeYen + "円）を確認済みですか？\\n空き枠があれば即座に掲載開始、掲載中があれば予約待ちキューに入ります。")) return;
