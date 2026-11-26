@@ -185,8 +185,9 @@
                 '申請ID：<strong>' + item.id + '</strong>' +
               '</div>' +
               (payLink
-                ? '<a href="' + payLink.replace(/"/g, "&quot;") + '" target="_blank" rel="noopener" style="display:block;text-align:center;background:#635bff;color:#fff;text-decoration:none;font-weight:bold;font-size:13px;padding:10px;border-radius:8px;">💳 Stripeでお支払いへ進む（' + feeYen.toLocaleString() + '円） ↗</a>'
+                ? '<a href="' + payLink.replace(/"/g, "&quot;") + '" onclick="localStorage.setItem(\'hs_paying_ad_id\', \'' + item.id + '\')" style="display:block;text-align:center;background:#635bff;color:#fff;text-decoration:none;font-weight:bold;font-size:13px;padding:10px;border-radius:8px;">💳 Stripeでお支払いへ進む（' + feeYen.toLocaleString() + '円） ↗</a>'
                 : '<div style="font-size:11px;color:#555;background:#fff;padding:6px;border-radius:6px;">現在お支払いリンクを発行準備中です。しばらくお待ちください。</div>') +
+
             '</div>';
         }
 
@@ -216,7 +217,7 @@
     try { user = JSON.parse(localStorage.getItem("site_user") || "null"); } catch (e) {}
     if (!user || !user.uid) return;
 
-    var pendingId = sessionStorage.getItem("hs_paying_ad_id") || "";
+var pendingId = localStorage.getItem("hs_paying_ad_id") || "";
     try {
       var res = await fetch("/api/short-ads", {
         method: "POST",
@@ -225,7 +226,7 @@
       });
       var data = await res.json();
       if (data && data.ok) {
-        sessionStorage.removeItem("hs_paying_ad_id");
+        localStorage.removeItem("hs_paying_ad_id");
         alert("お支払いが完了しました！自動的に承認され、トップページ掲載（または予約待ち）へ反映されました。");
       }
     } catch (e) {}
