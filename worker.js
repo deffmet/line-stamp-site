@@ -218,7 +218,7 @@ export class OnlineCounter {
             if (!fullDataUrl.startsWith("data:video/mp4")) {
               return new Response("Not Found", { status: 404 });
             }
-            const b64 = fullDataUrl.split(",") || "";
+            const b64 = fullDataUrl.split(",") [1]|| "";
             const binStr = atob(b64);
             const bytes = new Uint8Array(binStr.length);
             for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
