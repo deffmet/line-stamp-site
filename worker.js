@@ -187,65 +187,83 @@ export class OnlineCounter {
         }
         return { list, activeAd };
       };
-
       if (request.method === "GET") {
-        const { list, activeAd } = await syncShortAdQueue();
-        const mode = url.searchParams.get("mode");
-        const uid = url.searchParams.get("uid");
+        try {
+          const { list, activeAd } = await syncShortAdQueue();
+          const mode = url.searchParams.get("mode");
+          const uid = url.searchParams.get("uid");
 
-        // トップページ表示用（現在掲載中の1件、なければ null で short1.mp4 へ戻る）
-            // MP4動画ストリーミング配信（/api/short-ads?mode=video&id=〇〇）
-        if (mode === "video") {
-          const vidId = url.searchParams.get("id");
-          const chunkCount = Number((await this.state.storage.get("short_ad_chunks_" + vidId)) || 0);
-          let fullDataUrl = "";
-          if (chunkCount > 0) {
-            const parts = await Promise.all(
-              Array.from({ length: chunkCount }, (_, i) => this.state.storage.get(`short_ad_vid_${vidId}_${i}`))
-            );
-            fullDataUrl = parts.join("");
-          } else {
-            fullDataUrl = (await this.state.storage.get("short_ad_video_" + vidId)) || "";
+          const PLAN_URLS = {
+            "1000": "https://stripe.com",
+            "3000": "",
+            "5000": "https://stripe.com",
+            "10000": "https://stripe.com",
+            "50000": "",
+            "100000": "",
+          };
+
+          // MP4動画ストリーミング配信
+          if (mode === "video") {
+            const vidId = url.searchParams.get("id");
+            const chunkCount = Number((await this.state.storage.get("short_ad_chunks_" + vidId)) || 0);
+            let fullDataUrl = "";
+            if (chunkCount > 0) {
+              const parts = await Promise.all(
+                Array.from({ length: chunkCount }, (_, i) => this.state.storage.get(`short_ad_vid_${vidId}_${i}`))
+              );
+              fullDataUrl = parts.join("");
+            } else {
+              fullDataUrl = (await this.state.storage.get("short_ad_video_" + vidId)) || "";
+            }
+            if (!fullDataUrl.startsWith("data:video/mp4")) {
+              return new Response("Not Found", { status: 404 });
+            }
+            const b64 = fullDataUrl.split(",") || "";
+            const binStr = atob(b64);
+            const bytes = new Uint8Array(binStr.length);
+            for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+            return new Response(bytes, {
+              headers: { "Content-Type": "video/mp4", "Cache-Control": "public, max-age=3600" },
+            });
           }
-          if (!fullDataUrl.startsWith("data:video/mp4")) {
-            return new Response("Not Found", { status: 404 });
+
+          // トップページ表示用
+          if (mode === "active") {
+            if (!activeAd) return new Response(JSON.stringify(null), { headers: { "Content-Type": "application/json" } });
+            return new Response(JSON.stringify({
+              ...activeAd,
+              videoData: "/api/short-ads?mode=video&id=" + activeAd.id
+            }), {
+              headers: { "Content-Type": "application/json" },
+            });
           }
-          const b64 = fullDataUrl.split(",")[1] || "";
-          const binStr = atob(b64);
-          const bytes = new Uint8Array(binStr.length);
-          for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
-          return new Response(bytes, {
-            headers: { "Content-Type": "video/mp4", "Cache-Control": "public, max-age=3600" },
+
+          // 会員ごとの履歴取得（stripeUrl 自動補完付き）
+          if (uid) {
+            const safeList = Array.isArray(list) ? list : [];
+            const myAds = safeList
+              .filter((item) => item && String(item.uid) === String(uid))
+              .map((item) => ({
+                ...item,
+                stripeUrl: item.stripeUrl || PLAN_URLS[String(item.limit || "1000")] || "",
+              }));
+            return new Response(JSON.stringify(myAds), { headers: { "Content-Type": "application/json" } });
+          }
+
+          if (url.searchParams.get("key") !== ADMIN_KEY) {
+            return new Response("Unauthorized", { status: 401 });
+          }
+          return new Response(JSON.stringify(Array.isArray(list) ? list : []), {
+            headers: { "Content-Type": "application/json" },
           });
-        }
-
-        // トップページ表示用（現在掲載中の1件、なければ null で short1.mp4 へ戻る）
-        if (mode === "active") {
-          if (!activeAd) return new Response(JSON.stringify(null), { headers: { "Content-Type": "application/json" } });
-          return new Response(JSON.stringify({
-            ...activeAd,
-            videoData: "/api/short-ads?mode=video&id=" + activeAd.id
-          }), {
+        } catch (err) {
+          return new Response(JSON.stringify({ ok: false, error: err.message }), {
+            status: 500,
             headers: { "Content-Type": "application/json" },
           });
         }
-
-
-          if (uid) {
-          const myAds = list
-            .filter((item) => item.uid === uid)
-            .map((item) => ({
-              ...item,
-              stripeUrl: item.stripeUrl || STRIPE_PLAN_URLS[String(item.limit || "1000")] || "",
-            }));
-          return new Response(JSON.stringify(myAds), { headers: { "Content-Type": "application/json" } });
-        }
-
-        if (url.searchParams.get("key") !== ADMIN_KEY) {
-          return new Response("Unauthorized", { status: 401 });
-        }
-        return new Response(JSON.stringify(list), { headers: { "Content-Type": "application/json" } });
       }
+
 
       if (request.method === "POST") {
         const body = await request.json().catch(() => ({}));
