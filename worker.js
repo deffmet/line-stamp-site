@@ -284,9 +284,9 @@ export class OnlineCounter {
           if (target) {
             // ★上限クリック数（カテゴリー）ごとの事前設定 Stripe 決済URL
             const STRIPE_PLAN_URLS = {
-              "1000": "https://stripe.com",
-              "5000": "https://stripe.com",
-              "10000": "https://stripe.com",
+              "1000": "https://buy.stripe.com/14A3cp29j7NDfRzeDv1VK03",
+              "5000": "https://buy.stripe.com/4gM5kx3dn6JzcFn2UN1VK01",
+              "10000": "https://buy.stripe.com/5kQ5kxbJTd7Xaxf66Z1VK00",
               "50000": "https://stripe.com",
               "100000": "https://stripe.com",
             };
