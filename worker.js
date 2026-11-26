@@ -231,10 +231,16 @@ export class OnlineCounter {
         }
 
 
-        if (uid) {
-          const myAds = list.filter((item) => item.uid === uid);
+          if (uid) {
+          const myAds = list
+            .filter((item) => item.uid === uid)
+            .map((item) => ({
+              ...item,
+              stripeUrl: item.stripeUrl || STRIPE_PLAN_URLS[String(item.limit || "1000")] || "",
+            }));
           return new Response(JSON.stringify(myAds), { headers: { "Content-Type": "application/json" } });
         }
+
         if (url.searchParams.get("key") !== ADMIN_KEY) {
           return new Response("Unauthorized", { status: 401 });
         }
@@ -283,27 +289,26 @@ export class OnlineCounter {
           const target = list.find((item) => String(item.id) === String(body.id));
           if (target) {
             // ★上限クリック数（カテゴリー）ごとの事前設定 Stripe 決済URL
-            const STRIPE_PLAN_URLS = {
-              "1000": "https://buy.stripe.com/14A3cp29j7NDfRzeDv1VK03",
-              "5000": "https://buy.stripe.com/4gM5kx3dn6JzcFn2UN1VK01",
-              "10000": "https://buy.stripe.com/5kQ5kxbJTd7Xaxf66Z1VK00",
-              "50000": "https://stripe.com",
-              "100000": "https://stripe.com",
-            };
+      const STRIPE_PLAN_URLS = {
+        "1000": "https://buy.stripe.com/14A3cp29j7NDfRzeDv1VK03",
+        "3000": "https://stripe.com",
+        "5000": "https://buy.stripe.com/4gM5kx3dn6JzcFn2UN1VK01",
+        "10000": "https://buy.stripe.com/5kQ5kxbJTd7Xaxf66Z1VK00",
+        "50000": "https://stripe.com",
+        "100000": "https://stripe.com",
+      };
+
 
             if (body.status === "paid" || body.status === "approved") {
               target.status = "queued";
               target.paidAt = Date.now();
               target.clicks = 0;
-              target.rejectReason = "";
+              target.rejectReason = "";         
             } else if (body.status === "payment_pending") {
               target.status = "payment_pending";
-              const limitKey = String(target.limit || "1000");
-              const presetUrl = STRIPE_PLAN_URLS[limitKey] || "";
-              target.stripeUrl = (body.stripeUrl && body.stripeUrl.startsWith("https://"))
-                ? String(body.stripeUrl).trim().slice(0, 300)
-                : presetUrl;
-            } else {
+              target.stripeUrl = STRIPE_PLAN_URLS[String(target.limit || "1000")] || "";
+      
+            }else {
               target.status = "rejected";
               target.rejectReason = String(body.reason || "").slice(0, 200);
             }
@@ -1239,8 +1244,9 @@ export default {
             let sendStatus = status;
             if (status === "rejected") {
               reason = prompt("不許可（拒否）の理由を入力してください（会員画面に表示されます）：", "規約または動画基準を満たしていないため");
-              if (reason === null) return;                        } else if (status === "payment_pending") {
-              if (!confirm("この申請（上限 " + feeYen + "円分）を承諾し、該当プランのStripe決済リンクを会員へ自動送信しますか？")) return;
+              if (reason === null) return;                                   } else if (status === "payment_pending") {
+              if (!confirm("この申請（上限 " + feeYen + "円分）を承諾し、該当プランのStripe決済リンクを自動セットしますか？")) return;
+
 
 
             } else if (status === "paid") {
