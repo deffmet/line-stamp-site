@@ -109,106 +109,34 @@
   </div>
 
   <h2 class="section-title">📋 あなたの掲載動画履歴（最新順）</h2>
-  <div class="video-list" id="videoList">
+    <div class="video-list" id="videoList">
     <p style="color:#8d6e63;font-size:14px;">読み込み中...</p>
   </div>
 </div>
 
+<!-- ① 履歴・ステータス・Stripe決済ボタンだけを最優先で確実に表示する独立スクリプト -->
 <script>
-  var currentUser = null;
-  var saved = localStorage.getItem("site_user");
-  if (!saved) {
-    alert("ログインが必要です");
-    location.href = "index.html";
-  } else {
-    currentUser = JSON.parse(saved);
-    document.getElementById("memberNameLabel").textContent = "👤 " + currentUser.username;
-  }
-
-  function showFormError(msg) {
-    var box = document.getElementById("formErrorBox");
-    box.textContent = "⚠️ " + msg;
-    box.style.display = "block";
-  }
-
-  function updatePricePreview() {
-    var limit = Number(document.getElementById("adLimit").value || 1000);
-    var yen = Math.round(limit * 0.1);
-    document.getElementById("pricePreview").textContent =
-      "選択プラン：上限 " + limit.toLocaleString() + "クリック（目安：" + yen.toLocaleString() + "円）";
-  }
-
-  function isValidYoutubeUrl(str) {
-    return /^https?:\/\/(www\.|m\.)?(youtube\.com\/(shorts\/|watch\?v=)|youtu\.be\/)[A-Za-z0-9_-]+/.test(str);
-  }
-
-  function checkMp4File(file) {
-    return new Promise(function(resolve, reject) {
-      if (!file) return reject("short動画ファイル（MP4）を選択してください。");
-      var maxBytes = 25 * 1024 * 1024;
-      if (file.size > maxBytes) {
-        return reject("動画容量が大きすぎます（現在 " + (file.size / 1024 / 1024).toFixed(2) + "MB）。25MB以下のMP4にしてください。");
-      }
-      var isMp4Type = (file.type === "video/mp4") || /\.mp4$/i.test(file.name);
-      if (!isMp4Type) return reject("MP4形式（.mp4）の動画ファイルのみアップロード可能です。");
-
-      var objUrl = URL.createObjectURL(file);
-      var video = document.createElement("video");
-      video.preload = "metadata";
-      video.onloadedmetadata = function() {
-        var w = video.videoWidth;
-        var h = video.videoHeight;
-        URL.revokeObjectURL(objUrl);
-        if (w !== 720 || h !== 1280) {
-          return reject("動画解像度は「フレーム幅 720px × フレーム高 1280px」のみ受付可能です（現在 " + w + "×" + h + "px）。");
-        }
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-          resolve({
-            info: w + "×" + h + "px (" + (file.size / 1024 / 1024).toFixed(2) + "MB)",
-            videoData: ev.target.result
-          });
-        };
-        reader.onerror = function() { reject("動画データの読み込みに失敗しました。"); };
-        reader.readAsDataURL(file);
-      };
-      video.onerror = function() {
-        URL.revokeObjectURL(objUrl);
-        reject("動画ファイルを読み込めませんでした。正しいMP4ファイルか確認してください。");
-      };
-      video.src = objUrl;
-    });
-  }
-
-  function renderLineChart(items) {
-    var area = document.getElementById("chartArea");
-    if (!area) return;
-    var ordered = items.slice().reverse();
-    var points = ordered.length > 0 ? ordered.map(function(v) { return Number(v.clicks || 0); }) :;
-    if (points.length === 1) points = [0, points[0]];
-    var maxVal = Math.max.apply(null, points.concat(10));
-    var coords = points.map(function(val, idx) {
-      var x = (10 + (545 * idx) / (points.length - 1)).toFixed(1);
-      var y = (125 - (105 * val) / maxVal).toFixed(1);
-      return x + "," + y;
-    });
-    area.innerHTML = '<svg viewBox="0 0 600 140" width="100%" height="100%" preserveAspectRatio="none"><polyline fill="none" stroke="#e65100" stroke-width="3" points="' + coords.join(" ") + '"/></svg>';
-  }
-
   async function loadMyShortAds() {
     var listEl = document.getElementById("videoList");
     if (!listEl) return;
-    if (!currentUser || !currentUser.uid) {
-      listEl.innerHTML = '<div style="font-size:13px;color:#777;">ログイン情報を確認できませんでした。</div>';
+
+    var user = null;
+    try { user = JSON.parse(localStorage.getItem("site_user") || "null"); } catch (e) {}
+    if (!user || !user.uid) {
+      alert("ログインが必要です");
+      location.href = "index.html";
       return;
     }
 
+    var nameLabel = document.getElementById("memberNameLabel");
+    if (nameLabel) nameLabel.textContent = "👤 " + user.username;
+
     try {
-      var res = await fetch("/api/short-ads?uid=" + encodeURIComponent(currentUser.uid) + "&_t=" + Date.now(), {
+      var res = await fetch("/api/short-ads?uid=" + encodeURIComponent(user.uid) + "&_t=" + Date.now(), {
         cache: "no-store"
       });
       if (!res.ok) {
-        listEl.innerHTML = '<div style="font-size:13px;color:#c62828;">履歴の読み込みに失敗しました（HTTP ' + res.status + '）</div>';
+        listEl.innerHTML = '<div style="font-size:13px;color:#c62828;font-weight:bold;">履歴の取得に失敗しました（HTTP ' + res.status + '）</div>';
         return;
       }
       var list = await res.json();
@@ -217,7 +145,6 @@
       var totalClicks = list.reduce(function(sum, it) { return sum + Number(it.clicks || 0); }, 0);
       var totalEl = document.getElementById("totalClicksText");
       if (totalEl) totalEl.innerHTML = totalClicks.toLocaleString() + " <span>クリック</span>";
-      renderLineChart(list);
 
       if (list.length === 0) {
         listEl.innerHTML = '<div style="font-size:13px;color:#777;">まだ掲載申し込み履歴はありません。</div>';
@@ -272,14 +199,77 @@
         '</div>';
       }).join("");
     } catch (err) {
-      listEl.innerHTML = '<div style="font-size:13px;color:#c62828;">読み込み中にエラーが発生しました：' + (err && err.message ? err.message : "通信エラー") + '</div>';
+      listEl.innerHTML = '<div style="font-size:13px;color:#c62828;font-weight:bold;">読み込みエラー：' + (err && err.message ? err.message : "通信失敗") + '</div>';
     }
+  }
+
+  loadMyShortAds();
+</script>
+
+<!-- ② 新規申し込みフォーム送信専用スクリプト -->
+<script>
+  function showFormError(msg) {
+    var box = document.getElementById("formErrorBox");
+    box.textContent = "⚠️ " + msg;
+    box.style.display = "block";
+  }
+
+  function updatePricePreview() {
+    var limit = Number(document.getElementById("adLimit").value || 1000);
+    var yen = Math.round(limit * 0.1);
+    document.getElementById("pricePreview").textContent =
+      "選択プラン：上限 " + limit.toLocaleString() + "クリック到達で自動掲載終了（目安金額：" + yen.toLocaleString() + "円）";
+  }
+
+  function isValidYoutubeUrl(str) {
+    return /^https?:\/\/(www\.|m\.)?(youtube\.com\/(shorts\/|watch\?v=)|youtu\.be\/)[A-Za-z0-9_-]+/.test(str);
+  }
+
+  function checkMp4File(file) {
+    return new Promise(function(resolve, reject) {
+      if (!file) return reject("short動画ファイル（MP4）を選択してください。");
+      var maxBytes = 25 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        return reject("動画容量が大きすぎます（現在 " + (file.size / 1024 / 1024).toFixed(2) + "MB）。25MB以下のMP4にしてください。");
+      }
+      var isMp4Type = (file.type === "video/mp4") || /\.mp4$/i.test(file.name);
+      if (!isMp4Type) return reject("MP4形式（.mp4）の動画ファイルのみアップロード可能です。");
+
+      var objUrl = URL.createObjectURL(file);
+      var video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = function() {
+        var w = video.videoWidth;
+        var h = video.videoHeight;
+        URL.revokeObjectURL(objUrl);
+        if (w !== 720 || h !== 1280) {
+          return reject("動画解像度は「フレーム幅 720px × フレーム高 1280px」のみ受付可能です（現在 " + w + "×" + h + "px）。");
+        }
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          resolve({
+            info: w + "×" + h + "px (" + (file.size / 1024 / 1024).toFixed(2) + "MB)",
+            videoData: ev.target.result
+          });
+        };
+        reader.onerror = function() { reject("動画データの読み込みに失敗しました。"); };
+        reader.readAsDataURL(file);
+      };
+      video.onerror = function() {
+        URL.revokeObjectURL(objUrl);
+        reject("動画ファイルを読み込めませんでした。正しいMP4ファイルか確認してください。");
+      };
+      video.src = objUrl;
+    });
   }
 
   document.getElementById("shortAdForm").addEventListener("submit", async function(e) {
     e.preventDefault();
     document.getElementById("formErrorBox").style.display = "none";
-    if (!currentUser) return;
+
+    var user = null;
+    try { user = JSON.parse(localStorage.getItem("site_user") || "null"); } catch (err) {}
+    if (!user || !user.uid) return showFormError("ログイン情報が確認できませんでした。");
 
     var title = document.getElementById("adTitle").value.trim();
     var url = document.getElementById("adUrl").value.trim();
@@ -301,9 +291,9 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          uid: currentUser.uid,
-          username: currentUser.username,
-          email: currentUser.email,
+          uid: user.uid,
+          username: user.username,
+          email: user.email,
           title: title,
           limit: Number(document.getElementById("adLimit").value),
           url: url,
@@ -326,9 +316,8 @@
       btn.textContent = "この条件でショート動画掲載を申し込む";
     }
   });
-
-  loadMyShortAds();
 </script>
 </body>
 </html>
+
 
