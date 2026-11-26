@@ -1237,6 +1237,7 @@ export default {
 
 
     // ★新設：年別・月別 売上管理ページ（/admin-sales）
+    // ★新設：年別・月別 売上管理ページ（/admin-sales）
     if (url.pathname === "/admin-sales") {
       if (url.searchParams.get("key") !== ADMIN_KEY) {
         return new Response("アクセス権限がありません（パスワードが違います）", {
@@ -1244,8 +1245,12 @@ export default {
           headers: { "Content-Type": "text/plain; charset=utf-8" },
         });
       }
-      const sales = await (await stub.fetch(new Request(`https://dummy/api/sales-ledger?key=${ADMIN_KEY}`))).json();
-      const safeSales = Array.isArray(sales) ? sales : [];
+      let safeSales = [];
+      try {
+        const res = await stub.fetch(new Request(`https://dummy/api/sales-ledger?key=${ADMIN_KEY}`));
+        const data = await res.json();
+        if (Array.isArray(data)) safeSales = data;
+      } catch (e) {}
 
       const salesHtml = `<!DOCTYPE html>
 <html lang="ja">
@@ -1280,7 +1285,6 @@ export default {
     </div>
 
     <div class="year-tabs" id="yearTabs"></div>
-
     <div class="summary-grid" id="yearSummary"></div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -1319,9 +1323,9 @@ export default {
     const ALL_SALES = ${JSON.stringify(safeSales).replace(/</g, "\\u003c")};
     const currentYear = new Date().getFullYear();
     const yearSet = new Set([currentYear]);
-    ALL_SALES.forEach(s => { if (s.year) yearSet.add(Number(s.year)); });
+    ALL_SALES.forEach(s => { if (s && s.year) yearSet.add(Number(s.year)); });
     const years = Array.from(yearSet).sort((a, b) => b - a);
-    let selectedYear = years[0];
+    let selectedYear = years.at(0) || currentYear;
 
     function renderSalesPage(yr) {
       selectedYear = yr;
@@ -1330,7 +1334,7 @@ export default {
         '<button type="button" class="year-btn ' + (y === yr ? 'active' : '') + '" onclick="renderSalesPage(' + y + ')">' + y + '年（1月〜12月）</button>'
       ).join("");
 
-      const yrSales = ALL_SALES.filter(s => Number(s.year) === yr);
+      const yrSales = ALL_SALES.filter(s => s && Number(s.year) === yr);
       const totalAmt = yrSales.reduce((a, b) => a + Number(b.amount || 0), 0);
       const totalFee = yrSales.reduce((a, b) => a + Number(b.stripeFee || 0), 0);
       const totalNet = yrSales.reduce((a, b) => a + Number(b.netAmount || 0), 0);
@@ -1373,7 +1377,7 @@ export default {
     }
 
     function downloadYearCsv() {
-      const yrSales = ALL_SALES.filter(s => Number(s.year) === selectedYear);
+      const yrSales = ALL_SALES.filter(s => s && Number(s.year) === selectedYear);
       const lines = ["決済日時,年,月,申請ID,会員名,UID,クリック枠,総売上(円),Stripe手数料目安(円),手取り見込額(円)"];
       yrSales.forEach(s => {
         lines.push([s.date, s.year, s.month, s.adId, '"' + String(s.username || "").replace(/"/g, '""') + '"', s.uid, s.limit, s.amount, s.stripeFee, s.netAmount].join(","));
@@ -1391,6 +1395,8 @@ export default {
 </html>`;
       return new Response(salesHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
+
+    
 
 
     // ★秘密の管理者ページ（お問い合わせ＋会員一覧も見られます）
