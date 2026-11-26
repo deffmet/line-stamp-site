@@ -1239,10 +1239,9 @@ export default {
             let sendStatus = status;
             if (status === "rejected") {
               reason = prompt("不許可（拒否）の理由を入力してください（会員画面に表示されます）：", "規約または動画基準を満たしていないため");
-              if (reason === null) return;
-            } else if (status === "payment_pending") {
-              stripeUrl = prompt("この申請（" + feeYen + "円）用の Stripe 決済リンクURLを入力してください：", "https://stripe.com");
-              if (stripeUrl === null) return;
+              if (reason === null) return;            } else if (status === "payment_pending") {
+              if (!confirm("この申請（上限 " + feeYen + "円分）を承諾し、該当プランのStripe決済リンクを会員へ自動送信しますか？")) return;
+
             } else if (status === "paid") {
               if (!confirm("Stripeでの入金（" + feeYen + "円）を確認済みですか？\\n空き枠があれば即座に掲載開始、掲載中があれば予約待ちキューに入ります。")) return;
             } else if (status === "test_paid") {
