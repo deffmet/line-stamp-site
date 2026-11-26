@@ -139,6 +139,17 @@ export class OnlineCounter {
       }
     }
     // 4-4. ショート動画掲載データ・キュー自動切り替え・クリック計測API
+        // 4-4B. 年別・月別 売上台帳取得API（管理者専用）
+    if (url.pathname === "/api/sales-ledger") {
+      if (url.searchParams.get("key") !== ADMIN_KEY) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+      const sales = (await this.state.storage.get("sales_ledger")) || [];
+      return new Response(JSON.stringify(sales), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (url.pathname === "/api/short-ads") {
       // アクティブ掲載枠の期限（7日間）＆クリック上限チェック＆自動バトンタッチ関数
       const syncShortAdQueue = async () => {
@@ -187,6 +198,46 @@ export class OnlineCounter {
         }
         return { list, activeAd };
       };
+
+      // ★決済完了時に年別・月別の売上台帳（sales_ledger）へ永久記録する関数
+      const recordSaleEntry = async (adItem) => {
+        if (!adItem || adItem.saleRecorded) return;
+        const now = new Date();
+        const jstStr = now.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+        const jstParts = new Intl.DateTimeFormat("ja-JP", {
+          timeZone: "Asia/Tokyo",
+          year: "numeric",
+          month: "numeric",
+          day: "numeric",
+        }).formatToParts(now);
+        const year = Number(jstParts.find((p) => p.type === "year")?.value || 2026);
+        const month = Number(jstParts.find((p) => p.type === "month")?.value || 1);
+        const amount = Math.round(Number(adItem.limit || 1000) * 0.1);
+        const stripeFee = Math.round(amount * 0.036);
+        const netAmount = amount - stripeFee;
+
+        let sales = (await this.state.storage.get("sales_ledger")) || [];
+        if (sales.some((s) => String(s.adId) === String(adItem.id))) return;
+
+        sales.unshift({
+          saleId: "SALE_" + Date.now(),
+          adId: String(adItem.id),
+          date: jstStr,
+          year: year,
+          month: month,
+          amount: amount,
+          stripeFee: stripeFee,
+          netAmount: netAmount,
+          limit: Number(adItem.limit || 1000),
+          title: String(adItem.title || ""),
+          uid: String(adItem.uid || ""),
+          username: String(adItem.username || ""),
+        });
+        adItem.saleRecorded = true;
+        await this.state.storage.put("sales_ledger", sales);
+      };
+
+      
       if (request.method === "GET") {
         try {
           const { list, activeAd } = await syncShortAdQueue();
@@ -314,6 +365,8 @@ export class OnlineCounter {
           }
           if (target) {
             target.status = "queued";
+                     await recordSaleEntry(target);
+
             target.paidAt = Date.now();
             target.clicks = 0;
             target.rejectReason = "";
@@ -345,12 +398,16 @@ export class OnlineCounter {
       };
 
 
-            if (body.status === "paid" || body.status === "approved") {
-              target.status = "queued";
-              target.paidAt = Date.now();
-              target.clicks = 0;
-              target.rejectReason = "";         
-            } else if (body.status === "payment_pending") {
+         if (body.status === "paid" || body.status === "approved") {
+           target.status = "queued";
+           target.paidAt = Date.now();
+           target.clicks = 0;
+           target.rejectReason = "";
+           if (!body.isTest) {
+             await recordSaleEntry(target);
+           }
+         }
+ else if (body.status === "payment_pending") {
               target.status = "payment_pending";
               target.stripeUrl = STRIPE_PLAN_URLS[String(target.limit || "1000")] || "";
       
@@ -1179,6 +1236,161 @@ export default {
 
 
 
+    // ★新設：年別・月別 売上管理ページ（/admin-sales）
+    if (url.pathname === "/admin-sales") {
+      if (url.searchParams.get("key") !== ADMIN_KEY) {
+        return new Response("アクセス権限がありません（パスワードが違います）", {
+          status: 401,
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+      }
+      const sales = await (await stub.fetch(new Request(`https://dummy/api/sales-ledger?key=${ADMIN_KEY}`))).json();
+      const safeSales = Array.isArray(sales) ? sales : [];
+
+      const salesHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>年別・月別 売上管理台帳 | HookupStickers</title>
+  <style>
+    body { font-family: sans-serif; background: #fff8f0; color: #3e2723; margin: 0; padding: 16px; }
+    .wrap { max-width: 820px; margin: 0 auto; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .back-btn { background: #5d4037; color: #fff; text-decoration: none; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: bold; }
+    .year-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .year-btn { border: 2px solid #2e7d32; background: #fff; color: #2e7d32; font-weight: bold; padding: 8px 16px; border-radius: 999px; cursor: pointer; font-size: 14px; }
+    .year-btn.active { background: #2e7d32; color: #fff; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 20px; }
+    .card { background: #fff; border: 2px solid #c8e6c9; border-radius: 12px; padding: 14px; }
+    .card-label { font-size: 12px; color: #555; margin-bottom: 4px; }
+    .card-val { font-size: 22px; font-weight: bold; color: #1b5e20; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; margin-bottom: 24px; font-size: 13px; }
+    th, td { border: 1px solid #e0e0e0; padding: 10px 8px; text-align: right; }
+    th { background: #e8f5e9; color: #1b5e20; text-align: center; }
+    td:first-child, th:first-child { text-align: center; }
+    .csv-btn { background: #1565c0; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-bar">
+      <h1 style="margin:0;font-size:20px;color:#1b5e20;">📊 年別・月別 売上管理台帳（1年刻み集計）</h1>
+      <a href="/admin?key=${ADMIN_KEY}" class="back-btn">← 管理者トップへ戻る</a>
+    </div>
+
+    <div class="year-tabs" id="yearTabs"></div>
+
+    <div class="summary-grid" id="yearSummary"></div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h2 style="margin:0;font-size:16px;color:#2e7d32;" id="monthTableTitle">📅 月別売上内訳（1月〜12月）</h2>
+      <button type="button" class="csv-btn" onclick="downloadYearCsv()">⬇️ この年のCSVをダウンロード</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>月</th>
+          <th>決済件数</th>
+          <th>総売上（税込）</th>
+          <th>Stripe手数料目安(3.6%)</th>
+          <th>手取り見込額</th>
+        </tr>
+      </thead>
+      <tbody id="monthTableBody"></tbody>
+    </table>
+
+    <h2 style="margin:0 0 8px;font-size:16px;color:#3e2723;" id="detailTableTitle">🧾 決済完了明細一覧</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>決済日時</th>
+          <th>会員名 / ID</th>
+          <th>プラン</th>
+          <th>売上金額</th>
+          <th>手取り目安</th>
+        </tr>
+      </thead>
+      <tbody id="detailTableBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const ALL_SALES = ${JSON.stringify(safeSales).replace(/</g, "\\u003c")};
+    const currentYear = new Date().getFullYear();
+    const yearSet = new Set([currentYear]);
+    ALL_SALES.forEach(s => { if (s.year) yearSet.add(Number(s.year)); });
+    const years = Array.from(yearSet).sort((a, b) => b - a);
+    let selectedYear = years[0];
+
+    function renderSalesPage(yr) {
+      selectedYear = yr;
+      const tabsEl = document.getElementById("yearTabs");
+      tabsEl.innerHTML = years.map(y =>
+        '<button type="button" class="year-btn ' + (y === yr ? 'active' : '') + '" onclick="renderSalesPage(' + y + ')">' + y + '年（1月〜12月）</button>'
+      ).join("");
+
+      const yrSales = ALL_SALES.filter(s => Number(s.year) === yr);
+      const totalAmt = yrSales.reduce((a, b) => a + Number(b.amount || 0), 0);
+      const totalFee = yrSales.reduce((a, b) => a + Number(b.stripeFee || 0), 0);
+      const totalNet = yrSales.reduce((a, b) => a + Number(b.netAmount || 0), 0);
+
+      document.getElementById("yearSummary").innerHTML =
+        '<div class="card"><div class="card-label">' + yr + '年 決済件数</div><div class="card-val">' + yrSales.length.toLocaleString() + ' 件</div></div>' +
+        '<div class="card"><div class="card-label">' + yr + '年 総売上（税込）</div><div class="card-val">' + totalAmt.toLocaleString() + ' 円</div></div>' +
+        '<div class="card"><div class="card-label">Stripe手数料目安（3.6%）</div><div class="card-val" style="color:#c62828;">-' + totalFee.toLocaleString() + ' 円</div></div>' +
+        '<div class="card"><div class="card-label">' + yr + '年 手取り見込額</div><div class="card-val">' + totalNet.toLocaleString() + ' 円</div></div>';
+
+      document.getElementById("monthTableTitle").textContent = "📅 " + yr + "年 月別売上内訳（1月〜12月）";
+      let mRows = "";
+      for (let m = 1; m <= 12; m++) {
+        const mSales = yrSales.filter(s => Number(s.month) === m);
+        const mAmt = mSales.reduce((a, b) => a + Number(b.amount || 0), 0);
+        const mFee = mSales.reduce((a, b) => a + Number(b.stripeFee || 0), 0);
+        const mNet = mSales.reduce((a, b) => a + Number(b.netAmount || 0), 0);
+        mRows += '<tr style="' + (mSales.length > 0 ? 'background:#f1f8e9;font-weight:bold;' : 'color:#888;') + '">' +
+          '<td>' + m + '月</td>' +
+          '<td>' + mSales.length + ' 件</td>' +
+          '<td>' + mAmt.toLocaleString() + ' 円</td>' +
+          '<td>' + mFee.toLocaleString() + ' 円</td>' +
+          '<td>' + mNet.toLocaleString() + ' 円</td>' +
+        '</tr>';
+      }
+      document.getElementById("monthTableBody").innerHTML = mRows;
+
+      document.getElementById("detailTableTitle").textContent = "🧾 " + yr + "年 決済完了明細一覧（" + yrSales.length + "件）";
+      document.getElementById("detailTableBody").innerHTML = yrSales.length === 0
+        ? '<tr><td colspan="5" style="text-align:center;color:#777;padding:16px;">' + yr + '年の本番決済売上データはまだありません。</td></tr>'
+        : yrSales.map(s =>
+            '<tr>' +
+              '<td style="text-align:left;">' + (s.date || "") + '</td>' +
+              '<td style="text-align:left;"><strong>' + String(s.username || "").replace(/</g, "&lt;") + '</strong><br><span style="font-size:11px;color:#666;">申請ID: ' + s.adId + '</span></td>' +
+              '<td>' + Number(s.limit || 0).toLocaleString() + '回枠</td>' +
+              '<td><strong>' + Number(s.amount || 0).toLocaleString() + ' 円</strong></td>' +
+              '<td>' + Number(s.netAmount || 0).toLocaleString() + ' 円</td>' +
+            '</tr>'
+          ).join("");
+    }
+
+    function downloadYearCsv() {
+      const yrSales = ALL_SALES.filter(s => Number(s.year) === selectedYear);
+      const lines = ["決済日時,年,月,申請ID,会員名,UID,クリック枠,総売上(円),Stripe手数料目安(円),手取り見込額(円)"];
+      yrSales.forEach(s => {
+        lines.push([s.date, s.year, s.month, s.adId, '"' + String(s.username || "").replace(/"/g, '""') + '"', s.uid, s.limit, s.amount, s.stripeFee, s.netAmount].join(","));
+      });
+      const blob = new Blob(["\\uFEFF" + lines.join("\\n")], { type: "text/csv;charset=utf-8;" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "hookupstickers_sales_" + selectedYear + ".csv";
+      a.click();
+    }
+
+    renderSalesPage(selectedYear);
+  </script>
+</body>
+</html>`;
+      return new Response(salesHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
 
 
     // ★秘密の管理者ページ（お問い合わせ＋会員一覧も見られます）
@@ -1256,6 +1468,9 @@ export default {
           }).join("");
 
       const latestNoticeHtml = `
+        <div style="margin-bottom:14px;text-align:right;">
+          <a href="/admin-sales?key=${ADMIN_KEY}" style="display:inline-block;background:#2e7d32;color:#fff;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:8px;font-size:13px;">📊 年別・月別 売上管理台帳を開く ↗</a>
+        </div>
         <div style="background:#fff3e0;border:2px solid #e65100;border-radius:12px;padding:16px;margin-bottom:24px;">
           <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;">
             <h2 style="margin:0;color:#e65100;font-size:17px;">🔔 動画申請・掲載キュー（未決定:${pendingAds.length}件）</h2>
@@ -1300,6 +1515,7 @@ export default {
             } else if (status === "test_paid") {
               if (!confirm("【決済完了・自動承認テスト】会員がStripe決済を完了した直後の挙動をシミュレートし、自動でトップ掲載（または予約キュー）へ反映しますか？")) return;
               sendStatus = "paid";
+              isTest = true;
             }
 
             const res = await fetch("/api/short-ads", {
