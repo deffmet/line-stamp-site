@@ -173,7 +173,7 @@
         if (item.status === "payment_pending") {
           var rawPayLink = (item.stripeUrl && String(item.stripeUrl).indexOf("https://") === 0) ? String(item.stripeUrl) : "";
           var sep = rawPayLink.indexOf("?") === -1 ? "?" : "&";
-          var payLink = rawPayLink ? (rawPayLink + sep + "prefilled_email=" + encodeURIComponent(user.email || "") + "&client_reference_id=" + encodeURIComponent(String(item.id)) + "&custom_fields[0][value]=" + encodeURIComponent(String(item.id))) : "";
+          var payLink = rawPayLink ? (rawPayLink + sep + "prefilled_email=" + encodeURIComponent(user.email || "") + "&client_reference_id=" + encodeURIComponent(String(item.id))) : "";
 
 
 
@@ -202,13 +202,40 @@
             '<span class="badge-active">' + st + '</span>' +
           '</div>' +
         '</div>';
-      }).join("");
+           }).join("");
     } catch (err) {
       listEl.innerHTML = '<div style="font-size:13px;color:#c62828;font-weight:bold;">読み込みエラー：' + (err && err.message ? err.message : "通信失敗") + '</div>';
     }
   }
 
-  loadMyShortAds();
+  // ★Stripe決済完了後の自動リダイレクト（?paid=1）を検知して自動承認を実行
+  async function checkAutoPaidReturn() {
+    var params = new URLSearchParams(location.search);
+    if (params.get("paid") !== "1") return;
+    var user = null;
+    try { user = JSON.parse(localStorage.getItem("site_user") || "null"); } catch (e) {}
+    if (!user || !user.uid) return;
+
+    var pendingId = sessionStorage.getItem("hs_paying_ad_id") || "";
+    try {
+      var res = await fetch("/api/short-ads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "auto_paid", uid: user.uid, id: pendingId })
+      });
+      var data = await res.json();
+      if (data && data.ok) {
+        sessionStorage.removeItem("hs_paying_ad_id");
+        alert("お支払いが完了しました！自動的に承認され、トップページ掲載（または予約待ち）へ反映されました。");
+      }
+    } catch (e) {}
+    history.replaceState(null, "", "short_ad.html");
+  }
+
+  (async function initShortAdPage() {
+    await checkAutoPaidReturn();
+    await loadMyShortAds();
+  })();
 </script>
 
 <!-- ② 新規申し込みフォーム送信専用スクリプト -->
