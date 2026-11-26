@@ -194,10 +194,10 @@ export class OnlineCounter {
           const uid = url.searchParams.get("uid");
 
           const PLAN_URLS = {
-            "1000": "https://stripe.com",
-            "3000": "",
-            "5000": "https://stripe.com",
-            "10000": "https://stripe.com",
+            "1000": "https://buy.stripe.com/cNicMZ6pz1pf9tb3YR1VK06",
+            "3000": "https://buy.stripe.com/4gM5kx3dn6JzcFn2UN1VK01",
+            "5000": "https://buy.stripe.com/4gM5kx3dn6JzcFn2UN1VK01",
+            "10000": "https://buy.stripe.com/7sYcMZ5lv1pf34NgLD1VK05",
             "50000": "",
             "100000": "",
           };
@@ -308,10 +308,10 @@ export class OnlineCounter {
           if (target) {
             // ★上限クリック数（カテゴリー）ごとの事前設定 Stripe 決済URL
       const STRIPE_PLAN_URLS = {
-        "1000": "https://buy.stripe.com/14A3cp29j7NDfRzeDv1VK03",
-        "3000": "https://buy.stripe.com/5kQcMZcNX3xnaxfbrj1VK04",
+        "1000": "https://buy.stripe.com/3cI28laFP4Br0WFbrj1VK02",
+        "3000": "https://buy.stripe.com/cNicMZ6pz1pf9tb3YR1VK06",
         "5000": "https://buy.stripe.com/4gM5kx3dn6JzcFn2UN1VK01",
-        "10000": "https://buy.stripe.com/5kQ5kxbJTd7Xaxf66Z1VK00",
+        "10000": "https://buy.stripe.com/7sYcMZ5lv1pf34NgLD1VK05",
         "50000": "https://stripe.com",
         "100000": "https://stripe.com",
       };
