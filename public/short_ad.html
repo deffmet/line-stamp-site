@@ -173,7 +173,8 @@
         if (item.status === "payment_pending") {
           var rawPayLink = (item.stripeUrl && String(item.stripeUrl).indexOf("https://") === 0) ? String(item.stripeUrl) : "";
           var sep = rawPayLink.indexOf("?") === -1 ? "?" : "&";
-          var payLink = rawPayLink ? (rawPayLink + sep + "prefilled_email=" + encodeURIComponent(user.email || "") + "&custom_fields[requestid]=" + encodeURIComponent(String(item.id))) : "";
+          var payLink = rawPayLink ? (rawPayLink + sep + "prefilled_email=" + encodeURIComponent(user.email || "") + "&client_reference_id=" + encodeURIComponent(String(item.id)) + "&custom_fields[0][value]=" + encodeURIComponent(String(item.id))) : "";
+
 
 
           payBoxHtml =
