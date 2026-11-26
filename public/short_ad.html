@@ -172,7 +172,9 @@
         var payBoxHtml = "";
         if (item.status === "payment_pending") {
           var rawPayLink = (item.stripeUrl && String(item.stripeUrl).indexOf("https://") === 0) ? String(item.stripeUrl) : "";
-var payLink = rawPayLink ? (rawPayLink + (rawPayLink.indexOf("?") === -1 ? "?" : "&") + "prefilled_email=" + encodeURIComponent(user.email || "")) : "";
+          var sep = rawPayLink.indexOf("?") === -1 ? "?" : "&";
+          var payLink = rawPayLink ? (rawPayLink + sep + "prefilled_email=" + encodeURIComponent(user.email || "") + "&custom_fields[requestid]=" + encodeURIComponent(String(item.id))) : "";
+
 
           payBoxHtml =
             '<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:10px;margin-top:8px;">' +
